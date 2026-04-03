@@ -57,6 +57,25 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        dungeon: {
+          floor: "hsl(var(--dungeon-floor))",
+          wall: "hsl(var(--dungeon-wall))",
+          door: "hsl(var(--dungeon-door))",
+        },
+        room: {
+          normal: "hsl(var(--room-normal))",
+          treasure: "hsl(var(--room-treasure))",
+          trap: "hsl(var(--room-trap))",
+          boss: "hsl(var(--room-boss))",
+          start: "hsl(var(--room-start))",
+        },
+        loot: {
+          common: "hsl(var(--loot-common))",
+          uncommon: "hsl(var(--loot-uncommon))",
+          rare: "hsl(var(--loot-rare))",
+          epic: "hsl(var(--loot-epic))",
+          legendary: "hsl(var(--loot-legendary))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -73,3 +73,12 @@ export const DEFAULT_PLAYER: Player = {
   inventory: [],
   gold: 0,
 };
+
+// ── Extension pour le système de classes (Lon) ──────────────
+import type { ClassName, PlayerState as CombatPlayerState } from '../combat/types';
+export type { ClassName };
+
+export interface ClassedPlayer extends Player {
+  className: ClassName;
+  combatState?: CombatPlayerState; // état riche synchronisé après combat
+}

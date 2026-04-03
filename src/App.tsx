@@ -1,25 +1,42 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+
+// ── BAART : Game Engine ──────────────────────────────────────
+import { GameProvider, useGame } from "./engine/GameContext";
+import TitleScreen     from "./screens/TitleScreen";
+import GameScreen      from "./screens/GameScreen";
+import CombatScreen    from "./screens/CombatScreen";
+import InventoryScreen from "./screens/InventoryScreen";
+import GameOverScreen  from "./screens/GameOverScreen";
+import WinScreen       from "./screens/WinScreen";
 
 const queryClient = new QueryClient();
+
+// Router d'écrans — lit l'état du GameContext et affiche le bon écran
+function ScreenRouter() {
+  const { state } = useGame();
+
+  switch (state.screen) {
+    case 'title':     return <TitleScreen />;
+    case 'game':      return <GameScreen />;
+    case 'combat':    return <CombatScreen />;
+    case 'inventory': return <InventoryScreen />;
+    case 'gameover':  return <GameOverScreen />;
+    case 'win':       return <WinScreen />;
+    default:          return <TitleScreen />;
+  }
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <GameProvider>
+        <ScreenRouter />
+      </GameProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

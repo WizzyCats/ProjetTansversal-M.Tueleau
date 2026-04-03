@@ -125,7 +125,7 @@ export function generateDungeonFloor(config: DungeonConfig, floorLevel: number):
       width: 1,
       height: 1,
       doors: [],
-      enemies: type === 'start' ? [] : generateEnemiesForRoom(difficulty, isBoss, rng),
+      enemies: type !== 'normal' && type !== 'trap' && type !== 'treasure' ? [] : generateEnemiesForRoom(difficulty, false, rng),
       loot: type === 'treasure' ? generateLoot(3 + Math.floor(rng() * 3), difficulty, rng) : [],
       explored: false,
       cleared: false,

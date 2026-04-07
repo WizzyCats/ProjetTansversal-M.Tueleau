@@ -13,6 +13,7 @@ Dungeon Crawler en tour par tour — RPG de donjon avec salles aleatoires, ennem
 | **Vitest** + **Playwright** | Tests unitaires & E2E |
 | **Canvas API** | Rendu pixel art (UIManager) |
 | **Web Audio API** | Effets sonores |
+| **Lovable** | Scaffolding initial du projet + composants shadcn/ui |
 
 ## Lancer le projet
 

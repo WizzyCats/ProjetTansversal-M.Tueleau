@@ -102,6 +102,7 @@ export default function CombatScreen() {
   const [shakeEnemy, setShakeEnemy] = useState(false);
   const [shakePlayer, setShakePlayer] = useState(false);
   const [autoRunCount, setAutoRunCount] = useState(0);
+  const [combatKey, setCombatKey] = useState(0); // force re-init
 
   const isAutoRun = sessionStorage.getItem('autorun') === 'true';
 
@@ -125,7 +126,7 @@ export default function CombatScreen() {
     setBusy(false);
     setFloatingDmgs([]);
     setLevelsGained(0);
-  }, [activeEnemy?.id]);
+  }, [activeEnemy?.id, combatKey]);
 
   // Auto-run : attaque auto et continue auto
   useEffect(() => {
@@ -399,7 +400,7 @@ export default function CombatScreen() {
 
   // ===== RELANCE AUTO-RUN =====
   const continueAutoRun = () => {
-    if (!state.floor) return;
+    if (!state.floor || !player) return;
     const roomId = sessionStorage.getItem('autorunRoomId');
     const room = state.floor.rooms.find(r => r.id === roomId);
     if (!room || !room.enemies.length) { stopAutoRun(); return; }
@@ -409,7 +410,9 @@ export default function CombatScreen() {
     room.cleared = false;
     setAutoRunCount(c => c + 1);
 
-    dispatch({ type: 'ENTER_COMBAT', enemy: room.enemies[0] });
+    // Re-dispatch l'ennemi ET incrémenter combatKey pour forcer le re-init
+    dispatch({ type: 'ENTER_COMBAT', enemy: { ...room.enemies[0] } });
+    setCombatKey(k => k + 1);
   };
 
   // ===== FIN =====

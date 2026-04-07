@@ -433,7 +433,7 @@ export default function CombatScreen() {
       if (isAutoRun) {
         // Auto-run : pas de vraie mort, on s'arrête avec 1 PV
         stopAutoRun();
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: 1, resource: player.maxResource } });
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: player.maxHp, resource: player.maxResource } });
       } else {
         dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
       }

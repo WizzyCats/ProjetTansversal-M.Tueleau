@@ -278,9 +278,26 @@ export default function InventoryScreen() {
               <p className="font-pixel text-xs text-primary">Consommables</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {consumables.map(item => (
-                  <div key={item.id} className="bg-card border border-border rounded-lg p-3">
+                  <div key={item.id} className="bg-card border border-border rounded-lg p-3 space-y-2">
                     <p className={`font-pixel text-xs ${RARITY_COLORS[item.rarity]}`}>{item.icon} {item.name}</p>
                     <p className="text-xs text-muted-foreground">{item.description}</p>
+                    {item.type === 'potion' && (
+                      <button
+                        onClick={() => {
+                          let heal = 20;
+                          if (item.name.includes('vie') || item.name.includes('lixir')) heal = player.maxHp + equipBonus.hp - player.hp;
+                          if (item.name.includes('force')) heal = 0;
+                          if (player.hp >= player.maxHp + equipBonus.hp && heal > 0) return;
+                          const newHp = Math.min(player.hp + heal, player.maxHp + equipBonus.hp);
+                          const inv = player.inventory.filter(i => i.id !== item.id);
+                          dispatch({ type: 'SET_PLAYER', player: { ...player, hp: newHp, inventory: inv } });
+                          sfx.playHeal();
+                        }}
+                        disabled={player.hp >= player.maxHp + equipBonus.hp && !item.name.includes('force')}
+                        className="w-full px-2 py-1 bg-green-600/80 text-white rounded text-xs font-pixel hover:opacity-90 disabled:opacity-30">
+                        Utiliser
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

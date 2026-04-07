@@ -465,6 +465,20 @@ export default function CombatScreen() {
   };
 
   const skipScroll = () => {
+    if (scrollDrop) {
+      // Stocker le parchemin dans l'inventaire pour l'utiliser plus tard
+      const scrollItem: LootItem = {
+        id: `scroll_${scrollDrop.id}_${Date.now()}`,
+        name: scrollDrop.name,
+        rarity: 'rare',
+        type: 'scroll',
+        value: 30,
+        description: scrollDrop.description,
+        icon: scrollDrop.icon,
+      };
+      dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: [...player.inventory, scrollItem] } });
+      addLog(`${scrollDrop.name} stocke dans l'inventaire.`, 'loot');
+    }
     setScrollDrop(null);
     setPhase('loot');
   };

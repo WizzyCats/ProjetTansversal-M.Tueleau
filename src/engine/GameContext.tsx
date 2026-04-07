@@ -8,8 +8,9 @@
 // ============================================================
 
 import { createContext, useContext, useReducer, ReactNode } from 'react';
-import { GameState, GameAction, GameScreen, DEFAULT_PLAYER } from './gameTypes';
+import { GameState, GameAction, GameScreen, DEFAULT_PLAYER, Player } from './gameTypes';
 import { generateDungeonFloor } from '../levels/dungeonGenerator';
+import { getClassSkills, getClassResource, getClassBaseStats } from '../combat/skills';
 
 // ── État initial ─────────────────────────────────────────────
 const initialState: GameState = {
@@ -132,7 +133,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const startGame = () => {
     const floor = generateDungeonFloor({ floorCount: 1, minRooms: 8, maxRooms: 14, difficulty: 3 }, 1);
-    dispatch({ type: 'START_GAME', player: DEFAULT_PLAYER, floor });
+    const className = sessionStorage.getItem('playerClassName') ?? 'barbare';
+    const playerName = sessionStorage.getItem('playerName') ?? 'Héros';
+    const baseStats = getClassBaseStats(className);
+    const res = getClassResource(className);
+    const skills = getClassSkills(className);
+    const player: Player = {
+      ...DEFAULT_PLAYER,
+      name: playerName,
+      className,
+      hp: baseStats.hp,
+      maxHp: baseStats.hp,
+      attack: baseStats.atk,
+      defense: baseStats.def,
+      skills,
+      resource: res.max,
+      maxResource: res.max,
+      resourceRegen: res.regen,
+      resourceType: res.type,
+    };
+    dispatch({ type: 'START_GAME', player, floor });
   };
 
   const resetGame = () => dispatch({ type: 'RESET' });

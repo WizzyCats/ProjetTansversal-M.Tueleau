@@ -5,6 +5,7 @@
 // ============================================================
 
 import { Enemy, LootItem, DungeonFloor, Room } from '../levels/types';
+import type { Skill, ResourceType } from '../combat/skills';
 
 // ── États possibles du jeu ──────────────────────────────────
 export type GameScreen =
@@ -16,9 +17,9 @@ export type GameScreen =
   | 'win';
 
 // ── Joueur ──────────────────────────────────────────────────
-// Lon : tu peux ajouter des champs (skills, equipment, etc.)
 export interface Player {
   name: string;
+  className: string;
   hp: number;
   maxHp: number;
   attack: number;
@@ -28,6 +29,11 @@ export interface Player {
   xpToNextLevel: number;
   inventory: LootItem[];
   gold: number;
+  skills: Skill[];
+  resource: number;
+  maxResource: number;
+  resourceRegen: number;
+  resourceType: ResourceType;
 }
 
 // ── État global du jeu ──────────────────────────────────────
@@ -63,22 +69,19 @@ export type GameAction =
 // ── Joueur par défaut (nouvelle partie) ─────────────────────
 export const DEFAULT_PLAYER: Player = {
   name: 'Héros',
-  hp: 100,
-  maxHp: 100,
-  attack: 15,
-  defense: 5,
+  className: 'barbare',
+  hp: 160,
+  maxHp: 160,
+  attack: 22,
+  defense: 8,
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
   inventory: [],
   gold: 0,
+  skills: [],
+  resource: 5,
+  maxResource: 5,
+  resourceRegen: 1,
+  resourceType: 'stamina',
 };
-
-// ── Extension pour le système de classes (Lon) ──────────────
-import type { ClassName, PlayerState as CombatPlayerState } from '../combat/types';
-export type { ClassName };
-
-export interface ClassedPlayer extends Player {
-  className: ClassName;
-  combatState?: CombatPlayerState; // état riche synchronisé après combat
-}

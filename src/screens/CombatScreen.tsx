@@ -353,7 +353,9 @@ export default function CombatScreen() {
     const goldDrop = rand(5, 15 + rawXp);
     const combatDrops = (isAutoRun && !chance(1)) ? [] : generateCombatDrops(activeEnemy.tier);
     setXpGained(xp); setDrops(combatDrops);
-    const scroll = chance(activeEnemy.tier === 'boss' ? 60 : 30) ? getRandomScrollDrop(player.className) : null;
+    // Parchemin : jamais en auto-run, 5% minion, 15% elite, 50% boss
+    const scrollRate = isAutoRun ? 0 : activeEnemy.tier === 'boss' ? 50 : activeEnemy.tier === 'elite' ? 15 : 5;
+    const scroll = chance(scrollRate) ? getRandomScrollDrop(player.className) : null;
     setScrollDrop(scroll);
     sfx.playLevelUp();
     addLog(`${activeEnemy.name} vaincu ! +${xp} XP${player.xpBonus > 0 ? ` (+${player.xpBonus}%)` : ''} +${goldDrop} or`, 'loot');

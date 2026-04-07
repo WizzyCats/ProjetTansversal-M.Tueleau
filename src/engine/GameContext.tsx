@@ -57,7 +57,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
 
     case 'END_COMBAT_WIN': {
-      // Marquer la salle comme vidée
+      // Marquer la salle comme vidée. Utilise le player déjà dans le state (mis à jour par SET_PLAYER)
       const updatedRooms = state.floor?.rooms.map(r =>
         r.id === state.currentRoomId ? { ...r, cleared: true } : r
       );
@@ -65,7 +65,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         screen: 'game',
         previousScreen: 'combat',
-        player: action.player,
+        player: action.player ?? state.player,
         activeEnemy: null,
         floor: state.floor ? { ...state.floor, rooms: updatedRooms ?? [] } : null,
       };

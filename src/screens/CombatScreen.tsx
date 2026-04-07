@@ -270,7 +270,10 @@ export default function CombatScreen() {
     setBusy(true);
     if (chance(50)) {
       addLog('Fuite reussie !', 'system'); sfx.playMenu();
-      setTimeout(() => dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } }), 500);
+      setTimeout(() => {
+        dispatch({ type: 'SET_PLAYER', player: { ...player, hp: playerHp, resource } });
+        dispatch({ type: 'END_COMBAT_WIN' });
+      }, 500);
     } else {
       addLog('Fuite echouee !', 'system');
       setTimeout(() => doEnemyTurn(enemyHp, status), 900);
@@ -440,24 +443,22 @@ export default function CombatScreen() {
         return;
       }
 
-      // Marquer la salle comme cleared via END_COMBAT_WIN
-      // On re-read le player ACTUEL du state pour ne pas écraser les statPoints
-      const currentPlayer = state.player!;
       if (activeEnemy.tier === 'boss') {
         stopAutoRun();
         dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
-      } else {
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...currentPlayer, hp: playerHp } });
+        return;
       }
+      // handleVictory a déjà fait SET_PLAYER — on dispatch juste le changement d'écran
+      dispatch({ type: 'END_COMBAT_WIN' });
       if (levelsGained > 0) {
         stopAutoRun();
-        setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 100);
+        setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 50);
       }
     } else if (phase === 'defeat') {
       if (isAutoRun) {
         stopAutoRun();
-        const currentPlayer = state.player!;
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...currentPlayer, hp: currentPlayer.maxHp, resource: currentPlayer.maxResource } });
+        dispatch({ type: 'SET_PLAYER', player: { ...state.player!, hp: state.player!.maxHp, resource: state.player!.maxResource } });
+        dispatch({ type: 'END_COMBAT_WIN' });
       } else {
         dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
       }
@@ -508,7 +509,8 @@ export default function CombatScreen() {
             <button onClick={() => {
                 stopAutoRun(); setAutoRunCount(0);
                 const p = state.player!;
-                dispatch({ type: 'END_COMBAT_WIN', player: { ...p, hp: Math.max(playerHp, 1) } });
+                dispatch({ type: 'SET_PLAYER', player: { ...p, hp: Math.max(playerHp, 1) } });
+                dispatch({ type: 'END_COMBAT_WIN' });
               }}
               className="px-3 py-1 bg-red-600/80 text-white rounded font-pixel text-xs hover:opacity-90">
               Stop

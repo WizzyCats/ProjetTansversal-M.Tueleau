@@ -63,7 +63,7 @@ export type GameAction =
   | { type: 'SET_PLAYER'; player: Player }
   | { type: 'ENTER_ROOM'; room: Room }
   | { type: 'ENTER_COMBAT'; enemy: Enemy }
-  | { type: 'END_COMBAT_WIN'; player: Player }
+  | { type: 'END_COMBAT_WIN'; player?: Player }
   | { type: 'END_COMBAT_LOSE'; message?: string }
   | { type: 'BOSS_DEFEATED'; bossName: string }
   | { type: 'OPEN_INVENTORY' }

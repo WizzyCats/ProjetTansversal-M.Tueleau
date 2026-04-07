@@ -11,6 +11,8 @@ import {
 import type { PlayerState, CombatEnemy, CombatLog, LevelUpOffer } from '../combat/types';
 import type { ClassName } from '../combat/types';
 import type { Player } from '../engine/gameTypes';
+import PixelCanvas, { type PixelCanvasHandle } from '../components/PixelCanvas';
+import { useSoundFX } from '../hooks/useSoundFX';
 
 // ---------------------------------------------------------------------------
 // CONSTANTES
@@ -101,6 +103,8 @@ function CardChoice({ offer, onChoose }: { offer: LevelUpOffer; onChoose: (idx: 
 export default function CombatScreen() {
   const { state, dispatch } = useGame();
   const { activeEnemy, player } = state;
+  const sfx = useSoundFX();
+  const pixelRef = useRef<PixelCanvasHandle>(null);
 
   const [displayedLogs, setDisplayed]  = useState<CombatLog[]>([]);
   const [playerState, setPlayerState]  = useState<PlayerState | null>(null);
@@ -163,10 +167,46 @@ export default function CombatScreen() {
     setPlayerState(result.finalPlayerState);
 
     let idx = 0;
+    sfx.playSlash(); // Son de début de combat
     intervalRef.current = setInterval(() => {
       idx++;
-      setDisplayed(prev => [...prev, result.logs[idx - 1]]);
+      const entry = result.logs[idx - 1];
+      setDisplayed(prev => [...prev, entry]);
       if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+
+      // Effets visuels et sonores par type de log (Noura)
+      if (entry && pixelRef.current) {
+        const px = pixelRef.current;
+        const action = entry.action.toLowerCase();
+        if (action.includes('frappe') || action.includes('attaque') || action.includes('toucher')) {
+          px.showDamage(entry.value ?? 0, entry.actor === playerState?.name ? 'enemy' : 'player');
+          px.addEffect('slash', 420, 180);
+          sfx.playHit();
+        } else if (action.includes('soin') || action.includes('heal') || action.includes('survie')) {
+          px.showDamage(entry.value ?? 0, 'heal', 150, 180);
+          px.addEffect('heal', 150, 180);
+          sfx.playHeal();
+        } else if (action.includes('esquive') || action.includes('miss') || action.includes('parade')) {
+          px.showDamage(0, 'miss', 340, 160);
+        } else if (action.includes('crit') || action.includes('exécution')) {
+          px.showDamage(entry.value ?? 0, 'crit', 420, 160);
+          px.addEffect('explosion', 420, 180);
+          sfx.playLightning();
+        } else if (action.includes('poison')) {
+          px.showDamage(entry.value ?? 0, 'enemy', 450, 200);
+          px.addEffect('petal', 420, 200);
+        } else if (action.includes('chaos') || action.includes('sort')) {
+          px.addEffect('lightning', 420, 160);
+          sfx.playLightning();
+        } else if (action.includes('mort') || action.includes('☠')) {
+          px.addEffect('explosion', 420, 180);
+          sfx.playDeath();
+        } else if (action.includes('victoire') || action.includes('✅')) {
+          sfx.playLevelUp();
+        } else if (action.includes('invoque') || action.includes('minion')) {
+          sfx.playSparkle();
+        }
+      }
 
       if (idx >= result.logs.length) {
         clearInterval(intervalRef.current!);
@@ -195,6 +235,7 @@ export default function CombatScreen() {
 
   const handleCardChoice = (idx: 0 | 1 | 2) => {
     if (!playerState || pendingOffers.length === 0) return;
+    sfx.playLevelUp();
     const updated = applyCard(playerState, pendingOffers[0].cards[idx]);
     setPlayerState(updated);
     sessionStorage.setItem('combatPlayerState', JSON.stringify(updated));
@@ -229,7 +270,10 @@ export default function CombatScreen() {
   if (!activeEnemy || !player || !playerState || !enemyState) return null;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-4 gap-4 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-background flex flex-col p-4 gap-4 max-w-2xl mx-auto relative">
+
+      {/* Canvas pixel art overlay (Noura) — damage numbers + effets visuels */}
+      <PixelCanvas ref={pixelRef} active={phase === 'running'} />
 
       {/* Level Up overlay */}
       {phase === 'levelup' && pendingOffers.length > 0 && (

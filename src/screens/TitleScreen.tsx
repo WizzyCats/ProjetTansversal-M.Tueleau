@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useGame } from '../engine/GameContext';
 import { CLASS_NAMES, CLASS_LABELS, CLASS_DESCRIPTIONS } from '../combat/CombatSystem';
 import type { ClassName } from '../combat/types';
+import { useSoundFX } from '../hooks/useSoundFX';
 
 const CLASS_ICONS: Record<ClassName, string> = {
   barbare:      '⚔️',
@@ -23,14 +24,14 @@ const CLASS_META: Record<ClassName, { hp: string; spd: string; style: string }> 
 
 export default function TitleScreen() {
   const { startGame } = useGame();
+  const sfx = useSoundFX();
   const [selected, setSelected]   = useState<ClassName | null>(null);
   const [playerName, setPlayerName] = useState('');
   const [step, setStep]            = useState<'title' | 'class' | 'name'>('title');
 
   const handleStart = () => {
     if (!selected) return;
-    // startGame() lance la partie avec le joueur par défaut
-    // Le className sera stocké dans sessionStorage pour le CombatSystem
+    sfx.playSparkle();
     sessionStorage.setItem('playerClassName', selected);
     sessionStorage.setItem('playerName', playerName.trim() || CLASS_LABELS[selected].replace(/^[^ ]+ /, ''));
     startGame();
@@ -42,7 +43,7 @@ export default function TitleScreen() {
         <h1 className="font-pixel text-4xl text-primary">⚔️ CrawlVenture</h1>
         <p className="text-muted-foreground text-sm">Un donjon vous attend. Osez-vous entrer ?</p>
       </div>
-      <button onClick={() => setStep('class')}
+      <button onClick={() => { sfx.playMenu(); setStep('class'); }}
         className="px-8 py-4 rounded-md bg-primary text-primary-foreground font-pixel text-sm hover:opacity-90 transition-all hover:scale-105 active:scale-95">
         ▶ Choisir sa classe
       </button>
@@ -58,7 +59,7 @@ export default function TitleScreen() {
       <h2 className="font-pixel text-2xl text-primary">Choisissez votre classe</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
         {CLASS_NAMES.map(cls => (
-          <button key={cls} onClick={() => setSelected(selected === cls ? null : cls)}
+          <button key={cls} onClick={() => { sfx.playSparkle(); setSelected(selected === cls ? null : cls); }}
             className={`p-4 rounded-lg border-2 text-left transition-all ${
               selected === cls ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-border bg-card hover:border-primary/50'
             }`}>

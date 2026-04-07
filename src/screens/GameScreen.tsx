@@ -9,10 +9,12 @@ import { useGame } from '../engine/GameContext';
 import { Room } from '../levels/types';
 import DungeonMap from '../components/DungeonMap';
 import RoomDetail from '../components/RoomDetail';
+import { useSoundFX } from '../hooks/useSoundFX';
 
 export default function GameScreen() {
   const { state, dispatch } = useGame();
   const { player, floor, currentRoomId } = state;
+  const sfx = useSoundFX();
 
   // Quand le joueur clique sur une salle
   const handleRoomClick = useCallback((room: Room) => {
@@ -22,12 +24,18 @@ export default function GameScreen() {
     room.explored = true;
     dispatch({ type: 'ENTER_ROOM', room });
 
+    // Son contextuel selon le type de salle
+    if (room.type === 'treasure') sfx.playLoot();
+    else if (room.type === 'trap') sfx.playHit();
+    else if (room.type === 'boss') sfx.playDeath();
+    else sfx.playMenu();
+
     // S'il y a des ennemis non vaincus → combat
     const activeEnemies = room.enemies.filter(e => e.hp > 0);
     if (activeEnemies.length > 0 && !room.cleared) {
       dispatch({ type: 'ENTER_COMBAT', enemy: activeEnemies[0] });
     }
-  }, [floor, dispatch]);
+  }, [floor, dispatch, sfx]);
 
   const selectedRoom = floor?.rooms.find(r => r.id === currentRoomId) ?? null;
 

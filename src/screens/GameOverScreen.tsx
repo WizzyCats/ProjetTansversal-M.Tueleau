@@ -1,10 +1,14 @@
-// GameOverScreen.tsx — BAART
-// Noura : tu peux remplacer le visuel ici
+// GameOverScreen.tsx — BAART + NOURA (sons)
 
+import { useEffect } from 'react';
 import { useGame } from '../engine/GameContext';
+import { useSoundFX } from '../hooks/useSoundFX';
 
 export default function GameOverScreen() {
   const { state, resetGame } = useGame();
+  const sfx = useSoundFX();
+
+  useEffect(() => { sfx.playDeath(); }, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">

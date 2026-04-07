@@ -1151,6 +1151,8 @@ const UIManager = (() => {
   };
 })();
 
-// Rendre global
+// Rendre global (compatibilité)
 if (typeof window !== 'undefined') window.UIManager = UIManager;
-if (typeof module !== 'undefined') module.exports = UIManager;
+
+// Export ESM pour React
+export default UIManager;

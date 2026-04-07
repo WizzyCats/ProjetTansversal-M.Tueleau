@@ -418,23 +418,25 @@ export default function CombatScreen() {
   // ===== FIN =====
   const handleEndCombat = () => {
     if (phase === 'loot') {
+      if (isAutoRun && levelsGained === 0) {
+        // Auto-run : on sauve le player et on relance sans quitter l'écran combat
+        dispatch({ type: 'SET_PLAYER', player: { ...player, hp: playerHp, resource } });
+        setTimeout(() => continueAutoRun(), 400);
+        return;
+      }
+
       if (activeEnemy.tier === 'boss') {
         stopAutoRun();
         dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
       } else {
         dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
       }
-      // Level up ?
       if (levelsGained > 0) {
-        stopAutoRun(); // Pause auto-run pour répartir les points
+        stopAutoRun();
         setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 100);
-      } else if (isAutoRun) {
-        // Continuer l'auto-run après un court délai
-        setTimeout(() => continueAutoRun(), 600);
       }
     } else if (phase === 'defeat') {
       if (isAutoRun) {
-        // Auto-run : pas de vraie mort, on s'arrête avec 1 PV
         stopAutoRun();
         dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: player.maxHp, resource: player.maxResource } });
       } else {

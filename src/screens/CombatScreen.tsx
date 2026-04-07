@@ -101,8 +101,13 @@ export default function CombatScreen() {
   // Init — ressource pleine à chaque nouveau combat
   useEffect(() => {
     if (!activeEnemy || !player) return;
+    // Calculer max resource avec équipement
+    let resBonus = 0;
+    for (const item of Object.values(player.equipment)) {
+      if (item?.equipStats?.resource) resBonus += item.equipStats.resource;
+    }
     setPlayerHp(player.hp);
-    setResource(player.maxResource);
+    setResource(player.maxResource + resBonus);
     setEnemyHp(activeEnemy.hp);
     setEnemyMaxHp(activeEnemy.maxHp);
     setPhase('player_turn');
@@ -125,8 +130,21 @@ export default function CombatScreen() {
     setLogs(prev => [...prev, { text, type }]);
   };
 
-  const effectiveAtk = player.attack + status.atkBuff;
-  const effectiveDef = player.defense + status.defBuff;
+  // Bonus d'équipement
+  const equipBonus = { atk: 0, def: 0, hp: 0, resource: 0 };
+  for (const item of Object.values(player.equipment)) {
+    if (item?.equipStats) {
+      equipBonus.atk += item.equipStats.atk ?? 0;
+      equipBonus.def += item.equipStats.def ?? 0;
+      equipBonus.hp += item.equipStats.hp ?? 0;
+      equipBonus.resource += item.equipStats.resource ?? 0;
+    }
+  }
+
+  const effectiveAtk = player.attack + equipBonus.atk + status.atkBuff;
+  const effectiveDef = player.defense + equipBonus.def + status.defBuff;
+  const effectiveMaxHp = player.maxHp + equipBonus.hp;
+  const effectiveMaxRes = player.maxResource + equipBonus.resource;
   const effectiveEnemyAtk = Math.max(activeEnemy.attack - status.enemyAtkDebuff, 1);
   const resLabel = player.resourceType === 'mana' ? 'Mana' : 'Stamina';
 
@@ -366,8 +384,8 @@ export default function CombatScreen() {
   };
 
   const endEnemyTurn = (curStatus: StatusEffects) => {
-    // Regen de ressource
-    const newRes = Math.min(resource + player.resourceRegen, player.maxResource);
+    // Regen de ressource (avec bonus équipement)
+    const newRes = Math.min(resource + player.resourceRegen, effectiveMaxRes);
     setResource(newRes);
     setTurn(t => t + 1);
     setPhase('player_turn');
@@ -515,11 +533,11 @@ export default function CombatScreen() {
             <p className="font-pixel text-xs text-primary truncate">{player.name}</p>
             <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
           </div>
-          <HpBar hp={playerHp} maxHp={player.maxHp} />
-          <p className="text-xs text-muted-foreground">{Math.max(playerHp, 0)} / {player.maxHp} PV</p>
-          <Bar value={resource} max={player.maxResource}
+          <HpBar hp={playerHp} maxHp={effectiveMaxHp} />
+          <p className="text-xs text-muted-foreground">{Math.max(playerHp, 0)} / {effectiveMaxHp} PV</p>
+          <Bar value={resource} max={effectiveMaxRes}
             color={player.resourceType === 'mana' ? 'bg-blue-500' : 'bg-yellow-500'} />
-          <p className="text-xs text-muted-foreground">{resource} / {player.maxResource} {resLabel}</p>
+          <p className="text-xs text-muted-foreground">{resource} / {effectiveMaxRes} {resLabel}</p>
           <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
             <span>ATK {effectiveAtk}{status.atkBuff > 0 ? ` (+${status.atkBuff})` : ''}</span>
             <span>DEF {effectiveDef}{status.defBuff > 0 ? ` (+${status.defBuff})` : ''}</span>

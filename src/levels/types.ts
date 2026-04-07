@@ -10,6 +10,15 @@ export interface Position {
   y: number;
 }
 
+export type EquipSlot = 'weapon' | 'helmet' | 'chest' | 'accessory';
+
+export interface EquipStats {
+  atk?: number;
+  def?: number;
+  hp?: number;
+  resource?: number;
+}
+
 export interface LootItem {
   id: string;
   name: string;
@@ -18,6 +27,8 @@ export interface LootItem {
   value: number;
   description: string;
   icon: string;
+  equipSlot?: EquipSlot;
+  equipStats?: EquipStats;
 }
 
 export interface Enemy {

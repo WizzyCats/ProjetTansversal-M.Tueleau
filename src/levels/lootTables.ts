@@ -1,20 +1,53 @@
 import { LootItem, LootRarity } from './types';
 
 const WEAPONS: Omit<LootItem, 'id'>[] = [
-  { name: 'Dague rouillée', rarity: 'common', type: 'weapon', value: 5, description: 'Une dague qui a connu des jours meilleurs.', icon: '🗡️' },
-  { name: 'Épée courte', rarity: 'common', type: 'weapon', value: 12, description: 'Simple mais efficace.', icon: '⚔️' },
-  { name: 'Hache de guerre', rarity: 'uncommon', type: 'weapon', value: 25, description: 'Lourde et dévastatrice.', icon: '🪓' },
-  { name: 'Arc elfique', rarity: 'rare', type: 'weapon', value: 50, description: 'Forgé dans les bois anciens.', icon: '🏹' },
-  { name: 'Lame du Crépuscule', rarity: 'epic', type: 'weapon', value: 120, description: 'Elle brille d\'une lueur sombre.', icon: '🌙' },
-  { name: 'Excalibur', rarity: 'legendary', type: 'weapon', value: 300, description: 'L\'épée des rois.', icon: '👑' },
+  { name: 'Dague rouillée', rarity: 'common', type: 'weapon', value: 5, description: '+2 ATK', icon: '🗡️',
+    equipSlot: 'weapon', equipStats: { atk: 2 } },
+  { name: 'Épée courte', rarity: 'common', type: 'weapon', value: 12, description: '+4 ATK', icon: '⚔️',
+    equipSlot: 'weapon', equipStats: { atk: 4 } },
+  { name: 'Hache de guerre', rarity: 'uncommon', type: 'weapon', value: 25, description: '+7 ATK', icon: '🪓',
+    equipSlot: 'weapon', equipStats: { atk: 7 } },
+  { name: 'Arc elfique', rarity: 'rare', type: 'weapon', value: 50, description: '+10 ATK', icon: '🏹',
+    equipSlot: 'weapon', equipStats: { atk: 10 } },
+  { name: 'Lame du Crépuscule', rarity: 'epic', type: 'weapon', value: 120, description: '+15 ATK', icon: '🌙',
+    equipSlot: 'weapon', equipStats: { atk: 15 } },
+  { name: 'Excalibur', rarity: 'legendary', type: 'weapon', value: 300, description: '+22 ATK, +10 PV', icon: '👑',
+    equipSlot: 'weapon', equipStats: { atk: 22, hp: 10 } },
 ];
 
-const ARMOR: Omit<LootItem, 'id'>[] = [
-  { name: 'Bouclier en bois', rarity: 'common', type: 'armor', value: 8, description: 'Mieux que rien.', icon: '🛡️' },
-  { name: 'Cotte de mailles', rarity: 'uncommon', type: 'armor', value: 30, description: 'Protection décente.', icon: '🦺' },
-  { name: 'Armure de plates', rarity: 'rare', type: 'armor', value: 65, description: 'Forgée par un maître.', icon: '⚙️' },
-  { name: 'Cape d\'ombre', rarity: 'epic', type: 'armor', value: 100, description: 'Rend partiellement invisible.', icon: '🧥' },
-  { name: 'Égide divine', rarity: 'legendary', type: 'armor', value: 250, description: 'Bénie par les dieux.', icon: '✨' },
+const HELMETS: Omit<LootItem, 'id'>[] = [
+  { name: 'Capuche de cuir', rarity: 'common', type: 'armor', value: 6, description: '+1 DEF', icon: '🧢',
+    equipSlot: 'helmet', equipStats: { def: 1 } },
+  { name: 'Casque de fer', rarity: 'uncommon', type: 'armor', value: 18, description: '+3 DEF', icon: '⛑️',
+    equipSlot: 'helmet', equipStats: { def: 3 } },
+  { name: 'Heaume de chevalier', rarity: 'rare', type: 'armor', value: 45, description: '+5 DEF, +8 PV', icon: '🪖',
+    equipSlot: 'helmet', equipStats: { def: 5, hp: 8 } },
+  { name: 'Couronne maudite', rarity: 'epic', type: 'armor', value: 90, description: '+4 DEF, +3 Mana/Stamina', icon: '👑',
+    equipSlot: 'helmet', equipStats: { def: 4, resource: 3 } },
+];
+
+const CHEST_ARMOR: Omit<LootItem, 'id'>[] = [
+  { name: 'Plastron de cuir', rarity: 'common', type: 'armor', value: 8, description: '+2 DEF', icon: '🦺',
+    equipSlot: 'chest', equipStats: { def: 2 } },
+  { name: 'Cotte de mailles', rarity: 'uncommon', type: 'armor', value: 30, description: '+4 DEF, +5 PV', icon: '🛡️',
+    equipSlot: 'chest', equipStats: { def: 4, hp: 5 } },
+  { name: 'Armure de plates', rarity: 'rare', type: 'armor', value: 65, description: '+7 DEF, +10 PV', icon: '⚙️',
+    equipSlot: 'chest', equipStats: { def: 7, hp: 10 } },
+  { name: 'Cape d\'ombre', rarity: 'epic', type: 'armor', value: 100, description: '+5 DEF, +5 ATK', icon: '🧥',
+    equipSlot: 'chest', equipStats: { def: 5, atk: 5 } },
+  { name: 'Égide divine', rarity: 'legendary', type: 'armor', value: 250, description: '+12 DEF, +20 PV', icon: '✨',
+    equipSlot: 'chest', equipStats: { def: 12, hp: 20 } },
+];
+
+const ACCESSORIES: Omit<LootItem, 'id'>[] = [
+  { name: 'Anneau de cuivre', rarity: 'common', type: 'armor', value: 5, description: '+1 ATK, +1 DEF', icon: '💍',
+    equipSlot: 'accessory', equipStats: { atk: 1, def: 1 } },
+  { name: 'Amulette de vitalité', rarity: 'uncommon', type: 'armor', value: 20, description: '+12 PV', icon: '📿',
+    equipSlot: 'accessory', equipStats: { hp: 12 } },
+  { name: 'Talisman arcanique', rarity: 'rare', type: 'armor', value: 55, description: '+2 Mana/Stamina, +3 ATK', icon: '🔮',
+    equipSlot: 'accessory', equipStats: { resource: 2, atk: 3 } },
+  { name: 'Oeil du Néant', rarity: 'epic', type: 'armor', value: 110, description: '+8 ATK, +3 DEF', icon: '👁️',
+    equipSlot: 'accessory', equipStats: { atk: 8, def: 3 } },
 ];
 
 const POTIONS: Omit<LootItem, 'id'>[] = [
@@ -25,12 +58,12 @@ const POTIONS: Omit<LootItem, 'id'>[] = [
 ];
 
 const SCROLLS: Omit<LootItem, 'id'>[] = [
-  { name: 'Parchemin de feu', rarity: 'uncommon', type: 'scroll', value: 15, description: 'Lance une boule de feu.', icon: '📜' },
-  { name: 'Parchemin de gel', rarity: 'uncommon', type: 'scroll', value: 15, description: 'Gèle un ennemi.', icon: '❄️' },
-  { name: 'Parchemin de téléportation', rarity: 'rare', type: 'scroll', value: 40, description: 'Téléporte dans une salle aléatoire.', icon: '🌀' },
+  { name: 'Parchemin de feu', rarity: 'uncommon', type: 'scroll', value: 15, description: 'Apprend une capacité de feu.', icon: '📜' },
+  { name: 'Parchemin de gel', rarity: 'uncommon', type: 'scroll', value: 15, description: 'Apprend une capacité de glace.', icon: '❄️' },
+  { name: 'Parchemin ancien', rarity: 'rare', type: 'scroll', value: 40, description: 'Apprend une capacité rare.', icon: '🌀' },
 ];
 
-const ALL_ITEMS = [...WEAPONS, ...ARMOR, ...POTIONS, ...SCROLLS];
+const ALL_ITEMS = [...WEAPONS, ...HELMETS, ...CHEST_ARMOR, ...ACCESSORIES, ...POTIONS, ...SCROLLS];
 
 let itemIdCounter = 0;
 
@@ -44,7 +77,6 @@ const RARITY_WEIGHTS: Record<LootRarity, number> = {
 
 function weightedRarityPick(difficulty: number, rng: () => number): LootRarity {
   const weights = { ...RARITY_WEIGHTS };
-  // Increase rare+ chances with difficulty
   weights.uncommon += difficulty * 2;
   weights.rare += difficulty * 1.5;
   weights.epic += difficulty;
@@ -75,7 +107,6 @@ export function generateLoot(count: number, difficulty: number, rng: () => numbe
     });
   }
 
-  // Chance to add gold
   if (rng() < 0.7) {
     items.push({
       id: `gold_${++itemIdCounter}_${Date.now()}`,

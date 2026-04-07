@@ -4,7 +4,7 @@
 // Lon : le type Player est ici, tu peux l'étendre dans combat/
 // ============================================================
 
-import { Enemy, LootItem, DungeonFloor, Room } from '../levels/types';
+import { Enemy, LootItem, DungeonFloor, Room, EquipSlot } from '../levels/types';
 import type { Skill, ResourceType } from '../combat/skills';
 
 // ── États possibles du jeu ──────────────────────────────────
@@ -15,6 +15,9 @@ export type GameScreen =
   | 'inventory'
   | 'gameover'
   | 'win';
+
+// ── Équipement ─────────────────────────────────────────────
+export type Equipment = Record<EquipSlot, LootItem | null>;
 
 // ── Joueur ──────────────────────────────────────────────────
 export interface Player {
@@ -34,6 +37,7 @@ export interface Player {
   maxResource: number;
   resourceRegen: number;
   resourceType: ResourceType;
+  equipment: Equipment;
 }
 
 // ── État global du jeu ──────────────────────────────────────
@@ -84,4 +88,5 @@ export const DEFAULT_PLAYER: Player = {
   maxResource: 5,
   resourceRegen: 1,
   resourceType: 'stamina',
+  equipment: { weapon: null, helmet: null, chest: null, accessory: null },
 };

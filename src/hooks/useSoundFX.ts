@@ -1,13 +1,25 @@
 // =============================================================================
 // useSoundFX.ts — Hook pour jouer les sons de Noura depuis n'importe quel composant
-// Sons disponibles : slash, heal, petal, ice, lightning, hit, death, loot, levelup, sparkle, menu
 // =============================================================================
 
 import { useCallback } from 'react';
 import UIManager from '../ui/UIManager';
 
+function isMuted(): boolean {
+  return sessionStorage.getItem('muted') === 'true';
+}
+
+export function setMuted(val: boolean) {
+  sessionStorage.setItem('muted', val ? 'true' : 'false');
+}
+
+export function getMuted(): boolean {
+  return isMuted();
+}
+
 export function useSoundFX() {
   const play = useCallback((name: string) => {
+    if (isMuted()) return;
     UIManager.playSound(name);
   }, []);
 

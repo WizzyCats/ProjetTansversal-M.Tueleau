@@ -140,6 +140,21 @@ export default function GameScreen() {
               Recommencer la salle
             </button>
           )}
+          {selectedRoom && selectedRoom.cleared && selectedRoom.type !== 'start' && selectedRoom.type !== 'treasure' && selectedRoom.enemies.length > 0 && selectedRoom.id === currentRoomId && (
+            <button
+              onClick={() => {
+                sessionStorage.setItem('autorun', 'true');
+                sessionStorage.setItem('autorunRoomId', selectedRoom.id);
+                selectedRoom.enemies.forEach(e => { e.hp = Math.round(e.maxHp * 0.6); });
+                selectedRoom.cleared = false;
+                sfx.playSlash();
+                dispatch({ type: 'ENTER_COMBAT', enemy: selectedRoom.enemies[0] });
+              }}
+              className="w-full mt-2 py-2 bg-amber-600/80 text-white rounded-md font-pixel text-xs hover:opacity-90"
+            >
+              Auto-Run (farm XP)
+            </button>
+          )}
         </div>
       </div>
 

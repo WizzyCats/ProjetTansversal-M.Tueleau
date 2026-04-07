@@ -101,6 +101,9 @@ export default function CombatScreen() {
   const [floatingDmgs, setFloatingDmgs] = useState<FloatingDmg[]>([]);
   const [shakeEnemy, setShakeEnemy] = useState(false);
   const [shakePlayer, setShakePlayer] = useState(false);
+  const [autoRunCount, setAutoRunCount] = useState(0);
+
+  const isAutoRun = sessionStorage.getItem('autorun') === 'true';
 
   useEffect(() => {
     if (!activeEnemy || !player) return;
@@ -121,7 +124,30 @@ export default function CombatScreen() {
     setStatus({ ...EMPTY_STATUS });
     setBusy(false);
     setFloatingDmgs([]);
+    setLevelsGained(0);
   }, [activeEnemy?.id]);
+
+  // Auto-run : attaque auto et continue auto
+  useEffect(() => {
+    if (!isAutoRun || busy) return;
+    if (phase === 'player_turn' && player && enemyHp > 0) {
+      // Attaque avec le meilleur skill payable
+      const affordable = player.skills.filter(s => s.cost <= resource).sort((a, b) => b.cost - a.cost);
+      if (affordable.length > 0) {
+        const timer = setTimeout(() => useSkill(affordable[0]), 400);
+        return () => clearTimeout(timer);
+      }
+    }
+    if (phase === 'loot' || phase === 'defeat') {
+      const timer = setTimeout(() => handleEndCombat(), 800);
+      return () => clearTimeout(timer);
+    }
+    if (phase === 'learn_skill') {
+      // Auto-skip le scroll en auto-run
+      const timer = setTimeout(() => skipScroll(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, isAutoRun, busy, resource]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -365,20 +391,52 @@ export default function CombatScreen() {
     setScrollDrop(null); setPhase('loot');
   };
 
+  // ===== STOP AUTO-RUN =====
+  const stopAutoRun = () => {
+    sessionStorage.removeItem('autorun');
+    sessionStorage.removeItem('autorunRoomId');
+  };
+
+  // ===== RELANCE AUTO-RUN =====
+  const continueAutoRun = () => {
+    if (!state.floor) return;
+    const roomId = sessionStorage.getItem('autorunRoomId');
+    const room = state.floor.rooms.find(r => r.id === roomId);
+    if (!room || !room.enemies.length) { stopAutoRun(); return; }
+
+    // Respawn ennemis à 60%
+    room.enemies.forEach(e => { e.hp = Math.round(e.maxHp * 0.6); });
+    room.cleared = false;
+    setAutoRunCount(c => c + 1);
+
+    dispatch({ type: 'ENTER_COMBAT', enemy: room.enemies[0] });
+  };
+
   // ===== FIN =====
   const handleEndCombat = () => {
     if (phase === 'loot') {
       if (activeEnemy.tier === 'boss') {
+        stopAutoRun();
         dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
       } else {
         dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
       }
-      // Ouvrir l'écran level up si des points sont disponibles
+      // Level up ?
       if (levelsGained > 0) {
+        stopAutoRun(); // Pause auto-run pour répartir les points
         setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 100);
+      } else if (isAutoRun) {
+        // Continuer l'auto-run après un court délai
+        setTimeout(() => continueAutoRun(), 600);
       }
-    } else {
-      dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
+    } else if (phase === 'defeat') {
+      if (isAutoRun) {
+        // Auto-run : pas de vraie mort, on s'arrête avec 1 PV
+        stopAutoRun();
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: 1, resource: player.maxResource } });
+      } else {
+        dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
+      }
     }
   };
 
@@ -410,6 +468,17 @@ export default function CombatScreen() {
               Garder dans l'inventaire
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Header auto-run */}
+      {isAutoRun && (
+        <div className="flex items-center justify-between bg-amber-600/20 border border-amber-500/30 px-4 py-2">
+          <span className="font-pixel text-xs text-amber-400 animate-pulse">AUTO-RUN #{autoRunCount + 1}</span>
+          <button onClick={() => { stopAutoRun(); setAutoRunCount(0); }}
+            className="px-3 py-1 bg-red-600/80 text-white rounded font-pixel text-xs hover:opacity-90">
+            Stop
+          </button>
         </div>
       )}
 

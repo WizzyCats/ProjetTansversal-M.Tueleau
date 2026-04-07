@@ -401,46 +401,72 @@ export default function CombatScreen() {
       {/* ══════════════════════════════════════════
           ARÈNE DE COMBAT (style Pokemon)
       ══════════════════════════════════════════ */}
-      <div className="relative flex-1 min-h-[340px] bg-gradient-to-b from-[#1a0828] to-[#0d0510] overflow-hidden">
+      <div className="relative flex-1 min-h-[340px] overflow-hidden">
 
-        {/* Damage numbers flottants */}
-        {floatingDmgs.map(d => (
-          <DamageNumber key={d.id} dmg={d} onDone={() => removeDmg(d.id)} />
-        ))}
+        {/* ── FOND DONJON avec tiles Noura ── */}
+        {/* Rangée de murs (haut) */}
+        <div className="absolute top-0 left-0 right-0 flex flex-wrap" style={{ imageRendering: 'pixelated' }}>
+          {Array.from({ length: 20 }).map((_, i) => (
+            <PixelSprite key={`w${i}`} name="tileWall" scale={4} />
+          ))}
+        </div>
+        {/* Sol (milieu → bas) */}
+        <div className="absolute top-[64px] left-0 right-0 bottom-0 flex flex-wrap content-start" style={{ imageRendering: 'pixelated' }}>
+          {Array.from({ length: 80 }).map((_, i) => (
+            <PixelSprite key={`f${i}`} name="tileFloor" scale={4} />
+          ))}
+        </div>
+        {/* Déco : porte au fond centre */}
+        <div className="absolute top-[4px] left-1/2 -translate-x-1/2 z-[1]">
+          <PixelSprite name="tileDoor" scale={4} />
+        </div>
+        {/* Déco : cristaux */}
+        <div className="absolute top-[72px] left-4 z-[1] opacity-70">
+          <PixelSprite name="tileCrystal" scale={3} />
+        </div>
+        <div className="absolute top-[90px] right-6 z-[1] opacity-50">
+          <PixelSprite name="tileCrystal" scale={2} />
+        </div>
+        {/* Overlay sombre pour lisibilité */}
+        <div className="absolute inset-0 bg-black/30 z-[2]" />
 
-        {/* ── Ennemi : haut droite ── */}
-        <div className="absolute top-4 right-4 w-[55%]">
-          {/* Info ennemi */}
-          <div className="bg-[#1e0d2e]/90 border border-[#ff8fab33] rounded-lg px-3 py-2 mb-2">
-            <div className="flex justify-between items-center mb-1">
-              <span className="font-pixel text-xs text-destructive">{activeEnemy.name}</span>
-              <span className="text-xs text-muted-foreground">Tour {turn}</span>
-            </div>
-            <Bar value={enemyHp} max={enemyMaxHp} color="bg-red-500" height="h-2" />
-            <div className="flex justify-between mt-1">
-              <span className="text-xs text-muted-foreground">{enemyHp}/{enemyMaxHp}</span>
-              {activeEnemy.tier === 'boss' && <span className="text-xs text-red-400 font-pixel">BOSS</span>}
+        {/* ── CONTENU COMBAT (par-dessus le fond) ── */}
+        <div className="relative z-[3] w-full h-full">
+
+          {/* Damage numbers flottants */}
+          {floatingDmgs.map(d => (
+            <DamageNumber key={d.id} dmg={d} onDone={() => removeDmg(d.id)} />
+          ))}
+
+          {/* ── Ennemi : haut droite ── */}
+          <div className="absolute top-4 right-4 w-[55%]">
+            <div className="bg-[#0d0510]/85 border border-[#ff8fab33] rounded-lg px-3 py-2 mb-2 backdrop-blur-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-pixel text-xs text-destructive">{activeEnemy.name}</span>
+                <span className="text-xs text-muted-foreground">Tour {turn}</span>
+              </div>
+              <Bar value={enemyHp} max={enemyMaxHp} color="bg-red-500" height="h-2" />
+              <div className="flex justify-between mt-1">
+                <span className="text-xs text-muted-foreground">{enemyHp}/{enemyMaxHp}</span>
+                {activeEnemy.tier === 'boss' && <span className="text-xs text-red-400 font-pixel">BOSS</span>}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Sprite ennemi : centre-droit */}
-        <div className={`absolute top-16 right-12 transition-transform ${shakeEnemy ? 'translate-x-2 -translate-x-2' : ''}`}
-          style={shakeEnemy ? { animation: 'shake 0.3s ease-in-out' } : {}}>
-          <PixelSprite name={getEnemySpriteName(activeEnemy.name)} scale={7} />
-        </div>
+          {/* Sprite ennemi : centre-droit */}
+          <div className={`absolute top-20 right-16`}
+            style={shakeEnemy ? { animation: 'shake 0.3s ease-in-out' } : {}}>
+            <PixelSprite name={getEnemySpriteName(activeEnemy.name)} scale={7} />
+          </div>
 
-        {/* ── Sol / ligne de séparation ── */}
-        <div className="absolute bottom-[120px] left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ff8fab22] to-transparent" />
+          {/* Sprite héros : bas gauche */}
+          <div className={`absolute bottom-[80px] left-8`}
+            style={shakePlayer ? { animation: 'shake 0.3s ease-in-out' } : {}}>
+            <PixelSprite name={getHeroSpriteName(player.className)} scale={7} />
+          </div>
 
-        {/* Sprite héros : bas gauche */}
-        <div className={`absolute bottom-[80px] left-8 transition-transform ${shakePlayer ? '-translate-x-2 translate-x-2' : ''}`}
-          style={shakePlayer ? { animation: 'shake 0.3s ease-in-out' } : {}}>
-          <PixelSprite name={getHeroSpriteName(player.className)} scale={7} />
-        </div>
-
-        {/* Info joueur : bas droite */}
-        <div className="absolute bottom-4 right-4 w-[55%]">
+          {/* Info joueur : bas droite */}
+          <div className="absolute bottom-4 right-4 w-[55%]">
           <div className="bg-[#1e0d2e]/90 border border-[#c77dff33] rounded-lg px-3 py-2">
             <div className="flex justify-between items-center mb-1">
               <span className="font-pixel text-xs text-primary">{player.name}</span>
@@ -464,6 +490,7 @@ export default function CombatScreen() {
             </div>
           </div>
         </div>
+        </div>{/* ferme z-[3] */}
       </div>
 
       {/* ══════════════════════════════════════════

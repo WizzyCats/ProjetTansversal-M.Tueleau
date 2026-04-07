@@ -430,20 +430,23 @@ export default function CombatScreen() {
   };
 
   // ===== FIN =====
+  // Note : handleVictory a déjà fait SET_PLAYER avec toutes les stats/xp/statPoints à jour.
+  // Ici on fait juste la transition d'écran, sans re-écraser le player.
   const handleEndCombat = () => {
     if (phase === 'loot') {
       if (isAutoRun && levelsGained === 0) {
-        // Auto-run : on sauve le player et on relance sans quitter l'écran combat
-        dispatch({ type: 'SET_PLAYER', player: { ...player, hp: playerHp, resource } });
         setTimeout(() => continueAutoRun(), 400);
         return;
       }
 
+      // Marquer la salle comme cleared via END_COMBAT_WIN
+      // On re-read le player ACTUEL du state pour ne pas écraser les statPoints
+      const currentPlayer = state.player!;
       if (activeEnemy.tier === 'boss') {
         stopAutoRun();
         dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
       } else {
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...currentPlayer, hp: playerHp } });
       }
       if (levelsGained > 0) {
         stopAutoRun();
@@ -452,7 +455,8 @@ export default function CombatScreen() {
     } else if (phase === 'defeat') {
       if (isAutoRun) {
         stopAutoRun();
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: player.maxHp, resource: player.maxResource } });
+        const currentPlayer = state.player!;
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...currentPlayer, hp: currentPlayer.maxHp, resource: currentPlayer.maxResource } });
       } else {
         dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
       }

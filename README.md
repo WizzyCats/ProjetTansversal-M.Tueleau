@@ -70,7 +70,13 @@ src/
 ├── components/              # JENN + NOURA — Composants visuels
 │   ├── DungeonMap.tsx        #   Carte interactive du donjon (SVG + boutons)
 │   ├── RoomDetail.tsx        #   Detail d'une salle (ennemis, loot, portes)
+│   ├── PixelCanvas.tsx       #   Wrapper React du canvas Noura (overlay effets visuels)
 │   └── ui/                   #   48+ composants shadcn/ui
+│
+├── hooks/                   # Hooks partages
+│   ├── useSoundFX.ts         #   Hook sons (Noura) — accessible depuis tous les ecrans
+│   ├── use-mobile.tsx        #   Detection mobile
+│   └── use-toast.ts          #   Notifications toast
 │
 ├── App.tsx                  # BAART — Point d'entree : ScreenRouter + providers
 ├── main.tsx                 # Montage React
@@ -137,16 +143,32 @@ A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere p
 - **Loot :** Poids par rarete : common(50) > uncommon(30) > rare(13) > epic(5) > legendary(2)
 - **Connexions :** Portes bidirectionnelles + 20% chance de chemins croises
 
-### UI Pixel Art (Noura)
+### UI Pixel Art & Sons (Noura)
 
-`UIManager.js` fournit un systeme de rendu canvas complet :
-- **Sprites pixel art** : heros (fee, rose, ombre), ennemis (slime, boss)
-- **Damage numbers** flottants avec animation
-- **Barres de PV/MP/XP** avec gradients
-- **Log de combat** affiche en temps reel
-- **Web Audio API** : sons synthetiques (attaque, soin, loot, level up)
-- **Ecrans** : titre anime avec particules, selection de classe, game, game over, victoire
-- **Palette coherente** : rose/lavande/menthe/or sur fond sombre
+`UIManager.js` fournit un systeme de rendu canvas + audio complet, integre dans React via :
+- `PixelCanvas.tsx` — Composant React qui superpose un canvas transparent pour les effets visuels
+- `useSoundFX.ts` — Hook qui expose tous les sons depuis n'importe quel composant
+
+**Effets visuels (canvas overlay en combat) :**
+- **Damage numbers** flottants avec animation (degats, soins, crit, miss)
+- **Effets de sorts** : slash, petal, ice, lightning, heal, explosion
+- **Sprites pixel art** : heros (fee, rose, ombre), ennemis (slime, boss, skull)
+
+**Sons synthetiques (Web Audio API) :**
+
+| Son | Declencheur |
+|-----|------------|
+| `slash` | Debut de combat |
+| `hit` | Attaque / frappe |
+| `heal` | Soin / survie |
+| `lightning` | Coup critique / chaos |
+| `death` | Mort ennemi / game over |
+| `loot` | Entree salle tresor |
+| `levelup` | Victoire / level up |
+| `sparkle` | Selection classe / invocation |
+| `menu` | Navigation ecrans |
+
+**Palette coherente** : rose/lavande/menthe/or sur fond sombre
 
 ### Stats de base par classe
 
@@ -171,10 +193,11 @@ A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere p
 
 ## Ce qui reste a faire
 
-### Integration
-- [ ] Connecter UIManager.js (canvas Noura) comme composant React pour le rendu en jeu
-- [ ] Synchroniser les sprites pixel art avec le systeme de combat de Lon
-- [ ] Ajouter les sons de Noura (Web Audio API) aux evenements de combat
+### Integration (fait)
+- [x] Connecter UIManager.js (canvas Noura) comme composant React → `PixelCanvas.tsx`
+- [x] Ajouter les sons de Noura (Web Audio API) aux evenements de combat → `useSoundFX.ts`
+- [x] Sons sur tous les ecrans (titre, game, combat, game over, victoire)
+- [x] Effets visuels canvas (damage numbers, slash, explosion) en overlay combat
 
 ### Gameplay
 - [ ] Collecte automatique du loot en entrant dans une salle treasure
@@ -186,8 +209,8 @@ A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere p
 
 ### Polish
 - [ ] Animations CSS sur les transitions d'ecran
-- [ ] Integration complete des sprites pixel art dans les ecrans React
-- [ ] Ecran titre anime (particules de Noura)
+- [ ] Afficher les sprites pixel art (heros/ennemis) dans les panneaux React du combat
+- [ ] Ecran titre anime avec particules canvas de Noura
 
 ## Branches
 

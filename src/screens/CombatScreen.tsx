@@ -1,5 +1,5 @@
 // =============================================================================
-// CombatScreen.tsx — Combat tour par tour avec compétences
+// CombatScreen.tsx — Combat tour par tour style Pokemon Game Boy
 // =============================================================================
 
 import { useEffect, useState, useRef } from 'react';
@@ -8,7 +8,6 @@ import type { Player } from '../engine/gameTypes';
 import type { LootItem } from '../levels/types';
 import { generateLoot } from '../levels/lootTables';
 import { getRandomScrollDrop, type Skill } from '../combat/skills';
-import PixelCanvas, { type PixelCanvasHandle } from '../components/PixelCanvas';
 import PixelSprite, { getEnemySpriteName, getHeroSpriteName } from '../components/PixelSprite';
 import { useSoundFX } from '../hooks/useSoundFX';
 
@@ -20,16 +19,11 @@ interface LogEntry { text: string; type: 'player' | 'enemy' | 'system' | 'heal' 
 type Phase = 'player_turn' | 'enemy_turn' | 'victory' | 'defeat' | 'loot' | 'learn_skill';
 
 interface StatusEffects {
-  poisonDmg: number;
-  poisonTurns: number;
-  summonDmg: number;
-  summonTurns: number;
-  atkBuff: number;
-  defBuff: number;
-  enemyAtkDebuff: number;
-  shieldPercent: number;
-  guaranteedDodge: boolean;
-  skipEnemyTurn: boolean;
+  poisonDmg: number; poisonTurns: number;
+  summonDmg: number; summonTurns: number;
+  atkBuff: number; defBuff: number;
+  enemyAtkDebuff: number; shieldPercent: number;
+  guaranteedDodge: boolean; skipEnemyTurn: boolean;
 }
 
 const EMPTY_STATUS: StatusEffects = {
@@ -44,35 +38,42 @@ const EMPTY_STATUS: StatusEffects = {
 
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (pct: number) => Math.random() * 100 < pct;
-
-function xpForLevel(level: number): number {
-  return Math.round(100 * Math.pow(level, 1.5));
-}
+function xpForLevel(level: number) { return Math.round(100 * Math.pow(level, 1.5)); }
 
 function generateCombatDrops(tier: string): LootItem[] {
   const count = tier === 'boss' ? rand(3, 5) : tier === 'elite' ? rand(1, 3) : rand(0, 1);
   if (count === 0) return [];
-  const rng = () => Math.random();
-  return generateLoot(count, 3, rng);
+  return generateLoot(count, 3, () => Math.random());
+}
+
+// ---------------------------------------------------------------------------
+// DAMAGE NUMBER FLOTTANT (React, pas canvas)
+// ---------------------------------------------------------------------------
+
+interface FloatingDmg { id: number; value: string; color: string; x: 'left' | 'right'; }
+let dmgId = 0;
+
+function DamageNumber({ dmg, onDone }: { dmg: FloatingDmg; onDone: () => void }) {
+  useEffect(() => { const t = setTimeout(onDone, 1200); return () => clearTimeout(t); }, []);
+  return (
+    <div className={`absolute ${dmg.x === 'left' ? 'left-1/4' : 'right-1/4'} top-1/3 font-pixel text-lg animate-bounce pointer-events-none z-20`}
+      style={{ color: dmg.color, textShadow: '2px 2px 0 #000' }}>
+      {dmg.value}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
 // BARRE
 // ---------------------------------------------------------------------------
 
-function Bar({ value, max, color }: { value: number; max: number; color: string }) {
+function Bar({ value, max, color, height = 'h-3' }: { value: number; max: number; color: string; height?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
-      <div className={`${color} h-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+    <div className={`w-full bg-black/40 rounded-sm ${height} overflow-hidden border border-white/10`}>
+      <div className={`${color} ${height} transition-all duration-500`} style={{ width: `${pct}%` }} />
     </div>
   );
-}
-
-function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
-  const pct = (hp / maxHp) * 100;
-  const color = pct > 50 ? 'bg-green-500' : pct > 25 ? 'bg-yellow-500' : 'bg-red-500';
-  return <Bar value={hp} max={maxHp} color={color} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +84,6 @@ export default function CombatScreen() {
   const { state, dispatch } = useGame();
   const { activeEnemy, player } = state;
   const sfx = useSoundFX();
-  const pixelRef = useRef<PixelCanvasHandle>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   const [playerHp, setPlayerHp] = useState(0);
@@ -98,11 +98,12 @@ export default function CombatScreen() {
   const [scrollDrop, setScrollDrop] = useState<Skill | null>(null);
   const [status, setStatus] = useState<StatusEffects>({ ...EMPTY_STATUS });
   const [busy, setBusy] = useState(false);
+  const [floatingDmgs, setFloatingDmgs] = useState<FloatingDmg[]>([]);
+  const [shakeEnemy, setShakeEnemy] = useState(false);
+  const [shakePlayer, setShakePlayer] = useState(false);
 
-  // Init — ressource pleine à chaque nouveau combat
   useEffect(() => {
     if (!activeEnemy || !player) return;
-    // Calculer max resource avec équipement
     let resBonus = 0;
     for (const item of Object.values(player.equipment)) {
       if (item?.equipStats?.resource) resBonus += item.equipStats.resource;
@@ -112,13 +113,14 @@ export default function CombatScreen() {
     setEnemyHp(activeEnemy.hp);
     setEnemyMaxHp(activeEnemy.maxHp);
     setPhase('player_turn');
-    setLogs([{ text: `${activeEnemy.name} apparait !`, type: 'system' }]);
+    setLogs([]);
     setTurn(1);
     setXpGained(0);
     setDrops([]);
     setScrollDrop(null);
     setStatus({ ...EMPTY_STATUS });
     setBusy(false);
+    setFloatingDmgs([]);
   }, [activeEnemy?.id]);
 
   useEffect(() => {
@@ -127,11 +129,7 @@ export default function CombatScreen() {
 
   if (!activeEnemy || !player) return null;
 
-  const addLog = (text: string, type: LogEntry['type'] = 'system') => {
-    setLogs(prev => [...prev, { text, type }]);
-  };
-
-  // Bonus d'équipement
+  // Bonus équipement
   const equipBonus = { atk: 0, def: 0, hp: 0, resource: 0 };
   for (const item of Object.values(player.equipment)) {
     if (item?.equipStats) {
@@ -141,7 +139,6 @@ export default function CombatScreen() {
       equipBonus.resource += item.equipStats.resource ?? 0;
     }
   }
-
   const effectiveAtk = player.attack + equipBonus.atk + status.atkBuff;
   const effectiveDef = player.defense + equipBonus.def + status.defBuff;
   const effectiveMaxHp = player.maxHp + equipBonus.hp;
@@ -149,25 +146,29 @@ export default function CombatScreen() {
   const effectiveEnemyAtk = Math.max(activeEnemy.attack - status.enemyAtkDebuff, 1);
   const resLabel = player.resourceType === 'mana' ? 'Mana' : 'Stamina';
 
-  // ===== UTILISER UNE COMPÉTENCE =====
+  const addLog = (text: string, type: LogEntry['type'] = 'system') => {
+    setLogs(prev => [...prev, { text, type }]);
+  };
 
+  const showDmg = (value: string, color: string, side: 'left' | 'right') => {
+    const id = ++dmgId;
+    setFloatingDmgs(prev => [...prev, { id, value, color, x: side }]);
+  };
+  const removeDmg = (id: number) => setFloatingDmgs(prev => prev.filter(d => d.id !== id));
+
+  // ===== COMPÉTENCE =====
   const useSkill = (skill: Skill) => {
     if (busy || phase !== 'player_turn') return;
     if (resource < skill.cost) return;
     setBusy(true);
-
-    const newResource = resource - skill.cost;
-    setResource(newResource);
+    setResource(r => r - skill.cost);
 
     const eff = skill.effect;
     const newStatus = { ...status };
-
-    // Dégâts
     let dmg = 0;
-    if (eff.damageMultiplier && eff.damageMultiplier > 0) {
+
+    if (eff.damageMultiplier && eff.damageMultiplier > 0)
       dmg = Math.max(Math.round(effectiveAtk * eff.damageMultiplier) - activeEnemy.defense, 1);
-    }
-    // Chaos : dégâts aléatoires
     if (eff.chaosMin !== undefined && eff.chaosMax !== undefined) {
       const mult = eff.chaosMin + Math.random() * (eff.chaosMax - eff.chaosMin);
       dmg = Math.max(Math.round(effectiveAtk * mult) - activeEnemy.defense, 1);
@@ -177,503 +178,381 @@ export default function CombatScreen() {
     if (dmg > 0) {
       newEnemyHp = Math.max(enemyHp - dmg, 0);
       setEnemyHp(newEnemyHp);
-
-      const isBig = dmg > effectiveAtk;
-      addLog(`${skill.icon} ${skill.name} inflige ${dmg} degats !`, 'player');
-      pixelRef.current?.showDamage(dmg, isBig ? 'crit' : 'enemy', 420, 180);
-      pixelRef.current?.addEffect(isBig ? 'explosion' : 'slash', 420, 180);
+      setShakeEnemy(true); setTimeout(() => setShakeEnemy(false), 400);
+      showDmg(`-${dmg}`, dmg > effectiveAtk ? '#ff5500' : '#ffd166', 'right');
+      addLog(`${skill.icon} ${skill.name} : ${dmg} degats !`, 'player');
       sfx.playHit();
-    } else if (!eff.damageMultiplier || eff.damageMultiplier === 0) {
+    } else {
       addLog(`${skill.icon} ${skill.name} !`, 'player');
-    }
-
-    // Drain de vie
-    if (eff.healPercent && dmg > 0) {
-      const heal = Math.round(dmg * eff.healPercent / 100);
-      const newHp = Math.min(playerHp + heal, player.maxHp);
-      setPlayerHp(newHp);
-      addLog(`Drain : +${heal} PV`, 'heal');
-      pixelRef.current?.showDamage(heal, 'heal', 150, 180);
-      sfx.playHeal();
-    }
-
-    // Buffs
-    if (eff.atkBuff) {
-      newStatus.atkBuff += eff.atkBuff;
-      addLog(`ATK +${eff.atkBuff} pour le combat !`, 'system');
       sfx.playSparkle();
     }
-    if (eff.defBuff) {
-      newStatus.defBuff += eff.defBuff;
-      addLog(`DEF +${eff.defBuff} pour le combat !`, 'system');
-    }
 
-    // Debuffs ennemi
-    if (eff.enemyAtkDebuff) {
-      newStatus.enemyAtkDebuff += eff.enemyAtkDebuff;
-      addLog(`ATK ennemi -${eff.enemyAtkDebuff} !`, 'system');
+    if (eff.healPercent && dmg > 0) {
+      const heal = Math.round(dmg * eff.healPercent / 100);
+      setPlayerHp(hp => Math.min(hp + heal, effectiveMaxHp));
+      showDmg(`+${heal}`, '#80ffdb', 'left');
+      addLog(`Drain : +${heal} PV`, 'heal');
     }
-
-    // Poison
+    if (eff.atkBuff) { newStatus.atkBuff += eff.atkBuff; addLog(`ATK +${eff.atkBuff} !`, 'system'); }
+    if (eff.defBuff) { newStatus.defBuff += eff.defBuff; addLog(`DEF +${eff.defBuff} !`, 'system'); }
+    if (eff.enemyAtkDebuff) { newStatus.enemyAtkDebuff += eff.enemyAtkDebuff; addLog(`ATK ennemi -${eff.enemyAtkDebuff}`, 'system'); }
     if (eff.poisonDmg && eff.poisonDuration) {
       newStatus.poisonDmg = Math.max(newStatus.poisonDmg, eff.poisonDmg);
       newStatus.poisonTurns = Math.max(newStatus.poisonTurns, eff.poisonDuration);
-      addLog(`Poison applique : ${eff.poisonDmg} dmg/tour pendant ${eff.poisonDuration} tours`, 'player');
-      pixelRef.current?.addEffect('petal', 420, 200);
+      addLog(`Poison : ${eff.poisonDmg}/tour, ${eff.poisonDuration} tours`, 'player');
     }
-
-    // Invocation
     if (eff.summonDmg && eff.summonDuration) {
-      newStatus.summonDmg = eff.summonDmg;
-      newStatus.summonTurns = eff.summonDuration;
-      addLog(`Spectre invoque : ${eff.summonDmg} dmg/tour pendant ${eff.summonDuration} tours`, 'player');
-      sfx.playSparkle();
+      newStatus.summonDmg = eff.summonDmg; newStatus.summonTurns = eff.summonDuration;
+      addLog(`Invocation : ${eff.summonDmg}/tour, ${eff.summonDuration} tours`, 'player');
     }
-
-    // Bouclier
-    if (eff.shieldPercent) {
-      newStatus.shieldPercent = eff.shieldPercent;
-      addLog(`Bouclier : -${eff.shieldPercent}% prochain coup`, 'system');
-    }
-
-    // Esquive garantie
-    if (eff.guaranteedDodge) {
-      newStatus.guaranteedDodge = true;
-      addLog('Esquive garantie au prochain tour !', 'system');
-    }
-
-    // Skip ennemi
-    if (eff.skipEnemyChance && chance(eff.skipEnemyChance)) {
-      newStatus.skipEnemyTurn = true;
-      addLog('L\'ennemi est immobilise !', 'system');
-    }
+    if (eff.shieldPercent) { newStatus.shieldPercent = eff.shieldPercent; addLog(`Bouclier -${eff.shieldPercent}%`, 'system'); }
+    if (eff.guaranteedDodge) { newStatus.guaranteedDodge = true; addLog('Esquive preparee !', 'system'); }
+    if (eff.skipEnemyChance && chance(eff.skipEnemyChance)) { newStatus.skipEnemyTurn = true; addLog('Ennemi immobilise !', 'system'); }
 
     setStatus(newStatus);
-
-    if (newEnemyHp <= 0) {
-      setTimeout(() => handleVictory(), 600);
-    } else {
-      setTimeout(() => doEnemyTurn(newEnemyHp, newStatus), 800);
-    }
+    if (newEnemyHp <= 0) setTimeout(() => handleVictory(), 600);
+    else setTimeout(() => doEnemyTurn(newEnemyHp, newStatus), 900);
   };
 
-  // ===== UTILISER UNE POTION =====
-
+  // ===== POTION =====
   const usePotion = () => {
     if (busy || phase !== 'player_turn') return;
     const idx = player.inventory.findIndex(i => i.type === 'potion');
     if (idx === -1) return;
     setBusy(true);
-
     const potion = player.inventory[idx];
     let heal = 20;
-    if (potion.name.includes('vie') || potion.name.includes('lixir')) heal = player.maxHp - playerHp;
-    if (potion.name.includes('force')) { heal = 0; status.atkBuff += 5; setStatus({ ...status }); addLog('ATK +5 !', 'system'); }
-
-    if (heal > 0) {
-      setPlayerHp(Math.min(playerHp + heal, player.maxHp));
-      addLog(`${potion.name} : +${heal} PV`, 'heal');
-      pixelRef.current?.showDamage(heal, 'heal', 150, 180);
-      sfx.playHeal();
-    }
-
+    if (potion.name.includes('vie') || potion.name.includes('lixir')) heal = effectiveMaxHp - playerHp;
+    const newHp = Math.min(playerHp + heal, effectiveMaxHp);
+    setPlayerHp(newHp);
+    showDmg(`+${heal}`, '#80ffdb', 'left');
+    addLog(`${potion.name} : +${heal} PV`, 'heal');
+    sfx.playHeal();
     const inv = [...player.inventory]; inv.splice(idx, 1);
     dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: inv } });
-
-    setTimeout(() => doEnemyTurn(enemyHp, status), 800);
+    setTimeout(() => doEnemyTurn(enemyHp, status), 900);
   };
 
   // ===== FUIR =====
-
   const doFlee = () => {
     if (busy || phase !== 'player_turn') return;
     setBusy(true);
     if (chance(50)) {
-      addLog('Fuite reussie !', 'system');
-      sfx.playMenu();
+      addLog('Fuite reussie !', 'system'); sfx.playMenu();
       setTimeout(() => dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } }), 500);
     } else {
       addLog('Fuite echouee !', 'system');
-      setTimeout(() => doEnemyTurn(enemyHp, status), 800);
+      setTimeout(() => doEnemyTurn(enemyHp, status), 900);
     }
   };
 
   // ===== TOUR ENNEMI =====
-
   const doEnemyTurn = (curEnemyHp: number, curStatus: StatusEffects) => {
     if (curEnemyHp <= 0) { handleVictory(); return; }
     setPhase('enemy_turn');
-    let hpAfterDot = curEnemyHp;
+    let hpLeft = curEnemyHp;
 
-    // Poison tick
     if (curStatus.poisonTurns > 0) {
-      hpAfterDot = Math.max(curEnemyHp - curStatus.poisonDmg, 0);
-      setEnemyHp(hpAfterDot);
+      hpLeft = Math.max(hpLeft - curStatus.poisonDmg, 0); setEnemyHp(hpLeft);
+      showDmg(`-${curStatus.poisonDmg}`, '#4caf50', 'right');
       addLog(`Poison : ${curStatus.poisonDmg} degats`, 'player');
-      pixelRef.current?.showDamage(curStatus.poisonDmg, 'enemy', 450, 200);
       curStatus.poisonTurns--;
-      setStatus({ ...curStatus });
-      if (hpAfterDot <= 0) { setTimeout(() => handleVictory(), 600); return; }
+      if (hpLeft <= 0) { setStatus({...curStatus}); setTimeout(() => handleVictory(), 600); return; }
     }
-
-    // Invocation tick
     if (curStatus.summonTurns > 0) {
-      hpAfterDot = Math.max(hpAfterDot - curStatus.summonDmg, 0);
-      setEnemyHp(hpAfterDot);
+      hpLeft = Math.max(hpLeft - curStatus.summonDmg, 0); setEnemyHp(hpLeft);
+      showDmg(`-${curStatus.summonDmg}`, '#c77dff', 'right');
       addLog(`Spectre : ${curStatus.summonDmg} degats`, 'player');
-      pixelRef.current?.showDamage(curStatus.summonDmg, 'enemy', 430, 220);
       curStatus.summonTurns--;
-      setStatus({ ...curStatus });
-      if (hpAfterDot <= 0) { setTimeout(() => handleVictory(), 600); return; }
+      if (hpLeft <= 0) { setStatus({...curStatus}); setTimeout(() => handleVictory(), 600); return; }
     }
 
-    // Skip tour ennemi
     if (curStatus.skipEnemyTurn) {
-      curStatus.skipEnemyTurn = false;
-      setStatus({ ...curStatus });
-      addLog(`${activeEnemy.name} est immobilise et passe son tour !`, 'system');
-      setTimeout(() => endEnemyTurn(curStatus), 600);
-      return;
+      curStatus.skipEnemyTurn = false; setStatus({...curStatus});
+      addLog(`${activeEnemy.name} est paralyse !`, 'system');
+      setTimeout(() => endTurn(curStatus), 600); return;
     }
-
-    // Esquive
     if (curStatus.guaranteedDodge) {
-      curStatus.guaranteedDodge = false;
-      setStatus({ ...curStatus });
-      addLog(`Vous esquivez l'attaque !`, 'system');
-      pixelRef.current?.showDamage(0, 'miss', 150, 160);
-      sfx.playMenu();
-      setTimeout(() => endEnemyTurn(curStatus), 600);
-      return;
+      curStatus.guaranteedDodge = false; setStatus({...curStatus});
+      showDmg('MISS', '#888', 'left');
+      addLog('Esquive !', 'system'); sfx.playMenu();
+      setTimeout(() => endTurn(curStatus), 600); return;
     }
-
     if (chance(8)) {
-      addLog(`${activeEnemy.name} rate son attaque !`, 'system');
-      pixelRef.current?.showDamage(0, 'miss', 150, 160);
-      setTimeout(() => endEnemyTurn(curStatus), 600);
-      return;
+      showDmg('MISS', '#888', 'left');
+      addLog(`${activeEnemy.name} rate !`, 'system');
+      setTimeout(() => endTurn(curStatus), 600); return;
     }
 
-    // Attaque
     const rawAtk = Math.max(activeEnemy.attack - curStatus.enemyAtkDebuff, 1);
     let dmg = Math.max(rawAtk - effectiveDef, 1);
     const crit = chance(5);
     if (crit) dmg = Math.round(dmg * 1.8);
-
-    // Bouclier
     if (curStatus.shieldPercent > 0) {
-      dmg = Math.round(dmg * (1 - curStatus.shieldPercent / 100));
+      dmg = Math.max(Math.round(dmg * (1 - curStatus.shieldPercent / 100)), 1);
       curStatus.shieldPercent = 0;
-      setStatus({ ...curStatus });
-      addLog('Le bouclier absorbe une partie des degats !', 'system');
     }
+    setStatus({...curStatus});
 
-    dmg = Math.max(dmg, 1);
     const newHp = Math.max(playerHp - dmg, 0);
     setPlayerHp(newHp);
-
-    addLog(`${activeEnemy.name} ${crit ? 'CRIT !' : 'attaque :'} ${dmg} degats`, 'enemy');
-    pixelRef.current?.showDamage(dmg, crit ? 'crit' : 'player', 150, 180);
-    pixelRef.current?.addEffect('slash', 150, 180);
+    setShakePlayer(true); setTimeout(() => setShakePlayer(false), 400);
+    showDmg(crit ? `CRIT -${dmg}` : `-${dmg}`, crit ? '#ff5500' : '#ff8fab', 'left');
+    addLog(`${activeEnemy.name} ${crit ? 'CRIT' : 'attaque'} : ${dmg}`, 'enemy');
     sfx.playHit();
 
     if (newHp <= 0) {
-      setTimeout(() => { setPhase('defeat'); sfx.playDeath(); addLog('Vous etes vaincu...', 'system'); }, 600);
+      setTimeout(() => { setPhase('defeat'); sfx.playDeath(); addLog('Defaite...', 'system'); }, 600);
     } else {
-      setTimeout(() => endEnemyTurn(curStatus), 600);
+      setTimeout(() => endTurn(curStatus), 700);
     }
   };
 
-  const endEnemyTurn = (curStatus: StatusEffects) => {
-    // Regen de ressource (avec bonus équipement)
-    const newRes = Math.min(resource + player.resourceRegen, effectiveMaxRes);
-    setResource(newRes);
-    setTurn(t => t + 1);
-    setPhase('player_turn');
-    setBusy(false);
+  const endTurn = (s: StatusEffects) => {
+    setResource(r => Math.min(r + player.resourceRegen, effectiveMaxRes));
+    setTurn(t => t + 1); setPhase('player_turn'); setBusy(false);
   };
 
   // ===== VICTOIRE =====
-
   const handleVictory = () => {
     const xp = activeEnemy.xpReward;
-    const goldDrop = rand(5, 15 + activeEnemy.xpReward);
+    const goldDrop = rand(5, 15 + xp);
     const combatDrops = generateCombatDrops(activeEnemy.tier);
-    setXpGained(xp);
-    setDrops(combatDrops);
-
-    // Drop de parchemin de compétence (30% chance, 60% sur boss)
-    const scrollChance = activeEnemy.tier === 'boss' ? 60 : 30;
-    const scroll = chance(scrollChance) ? getRandomScrollDrop(player.className) : null;
+    setXpGained(xp); setDrops(combatDrops);
+    const scroll = chance(activeEnemy.tier === 'boss' ? 60 : 30) ? getRandomScrollDrop(player.className) : null;
     setScrollDrop(scroll);
-
     sfx.playLevelUp();
-    addLog(`${activeEnemy.name} est vaincu !`, 'system');
-    addLog(`+${xp} XP, +${goldDrop} or`, 'loot');
+    addLog(`${activeEnemy.name} vaincu ! +${xp} XP +${goldDrop} or`, 'loot');
     combatDrops.forEach(d => addLog(`${d.icon} ${d.name}`, 'loot'));
-    if (scroll) addLog(`Parchemin de competence : ${scroll.icon} ${scroll.name} !`, 'loot');
+    if (scroll) addLog(`Parchemin : ${scroll.icon} ${scroll.name}`, 'loot');
 
-    pixelRef.current?.addEffect('explosion', 420, 180);
-
-    // Level up
-    let newXp = player.xp + xp;
-    let newLevel = player.level;
-    let newMaxHp = player.maxHp;
-    let newAtk = player.attack;
-    let newDef = player.defense;
-    let xpNeeded = player.xpToNextLevel;
-
-    while (newXp >= xpNeeded && newLevel < 20) {
-      newXp -= xpNeeded;
-      newLevel++;
-      newMaxHp += 8;
-      newAtk += 2;
-      newDef += 1;
-      xpNeeded = xpForLevel(newLevel + 1);
-      addLog(`LEVEL UP ! Niveau ${newLevel} !`, 'system');
-      sfx.playLevelUp();
+    let newXp = player.xp + xp, newLv = player.level, newMHp = player.maxHp, newAtk = player.attack, newDef = player.defense, xpN = player.xpToNextLevel;
+    while (newXp >= xpN && newLv < 20) {
+      newXp -= xpN; newLv++; newMHp += 8; newAtk += 2; newDef += 1; xpN = xpForLevel(newLv + 1);
+      addLog(`LEVEL UP ! Niveau ${newLv}`, 'system'); sfx.playLevelUp();
     }
-
-    const updatedPlayer: Player = {
-      ...player,
-      hp: Math.min(playerHp, newMaxHp),
-      maxHp: newMaxHp,
-      attack: newAtk,
-      defense: newDef,
-      level: newLevel,
-      xp: newXp,
-      xpToNextLevel: xpNeeded,
-      gold: player.gold + goldDrop,
-      resource,
+    dispatch({ type: 'SET_PLAYER', player: {
+      ...player, hp: Math.min(playerHp, newMHp), maxHp: newMHp, attack: newAtk, defense: newDef,
+      level: newLv, xp: newXp, xpToNextLevel: xpN, gold: player.gold + goldDrop, resource,
       inventory: [...player.inventory, ...combatDrops],
-    };
-    dispatch({ type: 'SET_PLAYER', player: updatedPlayer });
-
+    }});
     setPhase(scroll ? 'learn_skill' : 'loot');
   };
 
-  // ===== APPRENDRE UNE COMPÉTENCE (parchemin) =====
-
-  const learnSkill = (slotIndex: number) => {
+  // ===== APPRENDRE COMPÉTENCE =====
+  const learnSkill = (i: number) => {
     if (!scrollDrop) return;
-    const newSkills = [...player.skills];
-    newSkills[slotIndex] = scrollDrop;
-    dispatch({ type: 'SET_PLAYER', player: { ...player, skills: newSkills } });
-    sfx.playSparkle();
-    addLog(`${scrollDrop.name} appris en slot ${slotIndex + 1} !`, 'system');
-    setScrollDrop(null);
-    setPhase('loot');
+    const sk = [...player.skills]; sk[i] = scrollDrop;
+    dispatch({ type: 'SET_PLAYER', player: { ...player, skills: sk } });
+    sfx.playSparkle(); addLog(`${scrollDrop.name} appris !`, 'system');
+    setScrollDrop(null); setPhase('loot');
   };
-
   const skipScroll = () => {
     if (scrollDrop) {
-      // Stocker le parchemin dans l'inventaire pour l'utiliser plus tard
-      const scrollItem: LootItem = {
-        id: `scroll_${scrollDrop.id}_${Date.now()}`,
-        name: scrollDrop.name,
-        rarity: 'rare',
-        type: 'scroll',
-        value: 30,
-        description: scrollDrop.description,
-        icon: scrollDrop.icon,
-      };
-      dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: [...player.inventory, scrollItem] } });
-      addLog(`${scrollDrop.name} stocke dans l'inventaire.`, 'loot');
+      const item: LootItem = { id: `scroll_${scrollDrop.id}_${Date.now()}`, name: scrollDrop.name,
+        rarity: 'rare', type: 'scroll', value: 30, description: scrollDrop.description, icon: scrollDrop.icon };
+      dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: [...player.inventory, item] } });
+      addLog(`${scrollDrop.name} stocke.`, 'loot');
     }
-    setScrollDrop(null);
-    setPhase('loot');
+    setScrollDrop(null); setPhase('loot');
   };
 
-  // ===== FIN DE COMBAT =====
-
+  // ===== FIN =====
   const handleEndCombat = () => {
     if (phase === 'loot') {
-      if (activeEnemy.tier === 'boss') {
-        dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
-      } else {
-        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
-      }
+      if (activeEnemy.tier === 'boss') dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
+      else dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
     } else {
       dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
     }
   };
 
-  // ===== RENDU =====
+  const potions = player.inventory.filter(i => i.type === 'potion').length;
+  const hpPct = (hp: number, max: number) => Math.max(0, Math.min(100, (hp / max) * 100));
+  const hpColor = (pct: number) => pct > 50 ? 'bg-green-500' : pct > 25 ? 'bg-yellow-500' : 'bg-red-500';
 
-  const potionCount = player.inventory.filter(i => i.type === 'potion').length;
-
+  // ===== RENDU POKEMON STYLE =====
   return (
-    <div className="min-h-screen bg-background flex flex-col p-4 gap-3 max-w-2xl mx-auto relative">
-      <PixelCanvas ref={pixelRef} active={phase === 'player_turn' || phase === 'enemy_turn'} />
+    <div className="min-h-screen bg-background flex flex-col max-w-2xl mx-auto">
 
-      {/* Overlay apprentissage compétence */}
+      {/* Overlay apprendre compétence */}
       {phase === 'learn_skill' && scrollDrop && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-lg space-y-4">
-            <h3 className="font-pixel text-sm text-primary text-center">
-              Parchemin trouve : {scrollDrop.icon} {scrollDrop.name}
-            </h3>
-            <p className="text-xs text-muted-foreground text-center">{scrollDrop.description}</p>
-            <p className="text-xs text-center text-muted-foreground">Cout : {scrollDrop.cost} {resLabel}</p>
-            <p className="font-pixel text-xs text-center text-yellow-400 mt-2">Remplacer quelle competence ?</p>
+            <h3 className="font-pixel text-sm text-primary text-center">{scrollDrop.icon} {scrollDrop.name}</h3>
+            <p className="text-xs text-muted-foreground text-center">{scrollDrop.description} — {scrollDrop.cost} {resLabel}</p>
+            <p className="font-pixel text-xs text-center text-yellow-400">Remplacer quelle competence ?</p>
             <div className="grid grid-cols-2 gap-3">
               {player.skills.map((sk, i) => (
                 <button key={i} onClick={() => learnSkill(i)}
-                  className="p-3 rounded-lg border border-border bg-secondary hover:border-primary text-left transition-all">
+                  className="p-3 rounded-lg border border-border bg-secondary hover:border-primary text-left">
                   <p className="font-pixel text-xs">{sk.icon} {sk.name}</p>
-                  <p className="text-xs text-muted-foreground">{sk.cost} {resLabel} — {sk.description}</p>
+                  <p className="text-xs text-muted-foreground">{sk.cost} {resLabel}</p>
                 </button>
               ))}
             </div>
-            <button onClick={skipScroll}
-              className="w-full px-4 py-2 text-xs text-muted-foreground hover:text-foreground transition-all">
-              Ignorer le parchemin
+            <button onClick={skipScroll} className="w-full text-xs text-muted-foreground hover:text-foreground py-2">
+              Garder dans l'inventaire
             </button>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="font-pixel text-lg text-destructive">Combat</h2>
-        <span className="text-xs text-muted-foreground font-pixel">Tour {turn}</span>
-      </div>
+      {/* ══════════════════════════════════════════
+          ARÈNE DE COMBAT (style Pokemon)
+      ══════════════════════════════════════════ */}
+      <div className="relative flex-1 min-h-[340px] bg-gradient-to-b from-[#1a0828] to-[#0d0510] overflow-hidden">
 
-      {/* Combattants */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Joueur */}
-        <div className={`bg-card border rounded-lg p-3 space-y-1 transition-all ${
-          phase === 'player_turn' ? 'border-primary' : 'border-border'}`}>
-          <div className="flex items-center gap-2">
-            <PixelSprite name={getHeroSpriteName(player.className)} scale={3} />
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-center">
-                <p className="font-pixel text-xs text-primary truncate">{player.name}</p>
-                <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
+        {/* Damage numbers flottants */}
+        {floatingDmgs.map(d => (
+          <DamageNumber key={d.id} dmg={d} onDone={() => removeDmg(d.id)} />
+        ))}
+
+        {/* ── Ennemi : haut droite ── */}
+        <div className="absolute top-4 right-4 w-[55%]">
+          {/* Info ennemi */}
+          <div className="bg-[#1e0d2e]/90 border border-[#ff8fab33] rounded-lg px-3 py-2 mb-2">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-pixel text-xs text-destructive">{activeEnemy.name}</span>
+              <span className="text-xs text-muted-foreground">Tour {turn}</span>
+            </div>
+            <Bar value={enemyHp} max={enemyMaxHp} color="bg-red-500" height="h-2" />
+            <div className="flex justify-between mt-1">
+              <span className="text-xs text-muted-foreground">{enemyHp}/{enemyMaxHp}</span>
+              {activeEnemy.tier === 'boss' && <span className="text-xs text-red-400 font-pixel">BOSS</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Sprite ennemi : centre-droit */}
+        <div className={`absolute top-16 right-12 transition-transform ${shakeEnemy ? 'translate-x-2 -translate-x-2' : ''}`}
+          style={shakeEnemy ? { animation: 'shake 0.3s ease-in-out' } : {}}>
+          <PixelSprite name={getEnemySpriteName(activeEnemy.name)} scale={7} />
+        </div>
+
+        {/* ── Sol / ligne de séparation ── */}
+        <div className="absolute bottom-[120px] left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ff8fab22] to-transparent" />
+
+        {/* Sprite héros : bas gauche */}
+        <div className={`absolute bottom-[80px] left-8 transition-transform ${shakePlayer ? '-translate-x-2 translate-x-2' : ''}`}
+          style={shakePlayer ? { animation: 'shake 0.3s ease-in-out' } : {}}>
+          <PixelSprite name={getHeroSpriteName(player.className)} scale={7} />
+        </div>
+
+        {/* Info joueur : bas droite */}
+        <div className="absolute bottom-4 right-4 w-[55%]">
+          <div className="bg-[#1e0d2e]/90 border border-[#c77dff33] rounded-lg px-3 py-2">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-pixel text-xs text-primary">{player.name}</span>
+              <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
+            </div>
+            <Bar value={playerHp} max={effectiveMaxHp} color={hpColor(hpPct(playerHp, effectiveMaxHp))} height="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>{playerHp}/{effectiveMaxHp} PV</span>
+              <span>ATK {effectiveAtk} DEF {effectiveDef}</span>
+            </div>
+            <Bar value={resource} max={effectiveMaxRes}
+              color={player.resourceType === 'mana' ? 'bg-blue-500' : 'bg-amber-500'} height="h-1.5" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{resource}/{effectiveMaxRes} {resLabel}</span>
+              <div className="flex gap-1">
+                {status.poisonTurns > 0 && <span className="text-green-400">PSN</span>}
+                {status.summonTurns > 0 && <span className="text-purple-400">INV</span>}
+                {status.guaranteedDodge && <span className="text-blue-400">EVA</span>}
+                {status.shieldPercent > 0 && <span className="text-cyan-400">SLD</span>}
               </div>
             </div>
           </div>
-          <HpBar hp={playerHp} maxHp={effectiveMaxHp} />
-          <p className="text-xs text-muted-foreground">{Math.max(playerHp, 0)} / {effectiveMaxHp} PV</p>
-          <Bar value={resource} max={effectiveMaxRes}
-            color={player.resourceType === 'mana' ? 'bg-blue-500' : 'bg-yellow-500'} />
-          <p className="text-xs text-muted-foreground">{resource} / {effectiveMaxRes} {resLabel}</p>
-          <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-            <span>ATK {effectiveAtk}{status.atkBuff > 0 ? ` (+${status.atkBuff})` : ''}</span>
-            <span>DEF {effectiveDef}{status.defBuff > 0 ? ` (+${status.defBuff})` : ''}</span>
-          </div>
-          {/* Indicateurs de statut */}
-          <div className="flex flex-wrap gap-1">
-            {status.poisonTurns > 0 && <span className="text-xs px-1 rounded bg-green-500/20 text-green-400">Poison {status.poisonTurns}t</span>}
-            {status.summonTurns > 0 && <span className="text-xs px-1 rounded bg-purple-500/20 text-purple-400">Spectre {status.summonTurns}t</span>}
-            {status.guaranteedDodge && <span className="text-xs px-1 rounded bg-blue-500/20 text-blue-400">Esquive</span>}
-            {status.shieldPercent > 0 && <span className="text-xs px-1 rounded bg-cyan-500/20 text-cyan-400">Bouclier</span>}
-          </div>
-        </div>
-
-        {/* Ennemi */}
-        <div className={`bg-card border rounded-lg p-3 space-y-1 transition-all ${
-          phase === 'enemy_turn' ? 'border-destructive' : 'border-border'}`}>
-          <div className="flex justify-between items-center">
-            <p className="font-pixel text-xs text-destructive truncate">{activeEnemy.name}</p>
-            {activeEnemy.tier === 'boss' && <span className="text-xs text-destructive font-pixel">BOSS</span>}
-          </div>
-          <div className="flex justify-center py-1">
-            <PixelSprite name={getEnemySpriteName(activeEnemy.name)} scale={5} />
-          </div>
-          <Bar value={enemyHp} max={enemyMaxHp} color="bg-red-500" />
-          <p className="text-xs text-muted-foreground">{Math.max(enemyHp, 0)} / {enemyMaxHp} PV</p>
-          <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-            <span>ATK {effectiveEnemyAtk}{status.enemyAtkDebuff > 0 ? ` (-${status.enemyAtkDebuff})` : ''}</span>
-            <span>DEF {activeEnemy.defense}</span>
-          </div>
         </div>
       </div>
 
-      {/* Log */}
-      <div ref={logRef}
-        className="flex-1 bg-card border border-border rounded-lg p-3 overflow-y-auto font-mono text-xs space-y-0.5 min-h-28 max-h-40">
-        {logs.map((e, i) => (
-          <div key={i} className={
-            e.type === 'player' ? 'text-blue-400' : e.type === 'enemy' ? 'text-red-400' :
-            e.type === 'heal' ? 'text-green-400' : e.type === 'loot' ? 'text-yellow-400' : 'text-muted-foreground'
-          }>{e.text}</div>
-        ))}
-      </div>
+      {/* ══════════════════════════════════════════
+          ZONE TEXTE + ACTIONS (bas de l'écran)
+      ══════════════════════════════════════════ */}
+      <div className="bg-[#0d0510] border-t-2 border-[#ff8fab22]">
 
-      {/* Drops */}
-      {phase === 'loot' && drops.length > 0 && (
-        <div className="bg-card border border-yellow-500/30 rounded-lg p-3 space-y-1">
-          <p className="font-pixel text-xs text-yellow-400">Butin :</p>
-          <div className="flex flex-wrap gap-2">
-            {drops.map((item, i) => (
-              <span key={i} className="text-xs px-2 py-1 rounded bg-secondary">{item.icon} {item.name}</span>
-            ))}
+        {/* Log de combat */}
+        <div ref={logRef} className="h-20 overflow-y-auto px-4 py-2 font-mono text-xs space-y-0.5">
+          {logs.length === 0 && <p className="text-muted-foreground italic">Un {activeEnemy.name} sauvage apparait !</p>}
+          {logs.map((e, i) => (
+            <div key={i} className={
+              e.type === 'player' ? 'text-blue-400' : e.type === 'enemy' ? 'text-red-400' :
+              e.type === 'heal' ? 'text-green-400' : e.type === 'loot' ? 'text-yellow-400' : 'text-muted-foreground'
+            }>{e.text}</div>
+          ))}
+        </div>
+
+        {/* Drops */}
+        {phase === 'loot' && drops.length > 0 && (
+          <div className="px-4 pb-2 flex flex-wrap gap-1">
+            {drops.map((d, i) => <span key={i} className="text-xs px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-400">{d.icon} {d.name}</span>)}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Résultat */}
-      {phase === 'loot' && (
-        <div className="p-3 rounded-lg border border-green-500 bg-green-500/10 text-center font-pixel text-sm text-green-400">
-          VICTOIRE ! +{xpGained} XP
-        </div>
-      )}
-      {phase === 'defeat' && (
-        <div className="p-3 rounded-lg border border-destructive bg-destructive/10 text-center font-pixel text-sm text-destructive">
-          DEFAITE
-        </div>
-      )}
+        {/* Résultat */}
+        {phase === 'loot' && (
+          <div className="mx-4 mb-2 p-2 rounded border border-green-500/50 bg-green-500/10 text-center font-pixel text-xs text-green-400">
+            VICTOIRE ! +{xpGained} XP
+          </div>
+        )}
+        {phase === 'defeat' && (
+          <div className="mx-4 mb-2 p-2 rounded border border-red-500/50 bg-red-500/10 text-center font-pixel text-xs text-red-400">
+            DEFAITE...
+          </div>
+        )}
 
-      {/* Compétences / Actions */}
-      <div className="space-y-2">
-        {phase === 'player_turn' && (
-          <>
-            {/* Skills */}
-            <div className="grid grid-cols-2 gap-2">
-              {player.skills.map((skill) => (
-                <button key={skill.id}
-                  onClick={() => useSkill(skill)}
-                  disabled={busy || resource < skill.cost}
-                  className="px-3 py-2 bg-card border border-border rounded-md text-left hover:border-primary transition-all disabled:opacity-30"
-                  title={skill.description}>
-                  <div className="flex justify-between items-center">
-                    <span className="font-pixel text-xs">{skill.icon} {skill.name}</span>
-                    <span className={`text-xs ${resource >= skill.cost ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {skill.cost} {resLabel.slice(0, 3)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{skill.description}</p>
+        {/* Actions */}
+        <div className="p-3 space-y-2">
+          {phase === 'player_turn' && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {player.skills.map(sk => (
+                  <button key={sk.id} onClick={() => useSkill(sk)} disabled={busy || resource < sk.cost}
+                    className="px-3 py-2 bg-[#1e0d2e] border border-[#c77dff33] rounded text-left hover:border-[#c77dff] transition-all disabled:opacity-25">
+                    <div className="flex justify-between">
+                      <span className="font-pixel text-xs">{sk.icon} {sk.name}</span>
+                      <span className={`text-xs ${resource >= sk.cost ? 'text-amber-400' : 'text-red-400'}`}>{sk.cost}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={usePotion} disabled={busy || potions === 0}
+                  className="flex-1 py-2 bg-green-800/60 border border-green-500/30 rounded font-pixel text-xs text-green-300 disabled:opacity-25">
+                  Potion ({potions})
                 </button>
-              ))}
+                <button onClick={doFlee} disabled={busy || activeEnemy.tier === 'boss'}
+                  className="flex-1 py-2 bg-[#1e0d2e] border border-[#ff8fab22] rounded font-pixel text-xs text-muted-foreground disabled:opacity-25">
+                  {activeEnemy.tier === 'boss' ? 'Bloque' : 'Fuir'}
+                </button>
+              </div>
+            </>
+          )}
+          {phase === 'enemy_turn' && (
+            <div className="text-center py-3 font-pixel text-xs text-red-400 animate-pulse">
+              {activeEnemy.name} attaque...
             </div>
-            {/* Actions secondaires */}
-            <div className="flex gap-2">
-              <button onClick={usePotion} disabled={busy || potionCount === 0}
-                className="flex-1 px-3 py-2 bg-green-600/80 text-white rounded-md font-pixel text-xs hover:opacity-90 disabled:opacity-30">
-                Potion ({potionCount})
-              </button>
-              <button onClick={doFlee} disabled={busy || activeEnemy.tier === 'boss'}
-                className="flex-1 px-3 py-2 bg-secondary text-secondary-foreground rounded-md font-pixel text-xs hover:opacity-80 disabled:opacity-40">
-                {activeEnemy.tier === 'boss' ? 'Pas de fuite' : 'Fuir'}
-              </button>
-            </div>
-          </>
-        )}
-        {phase === 'enemy_turn' && (
-          <div className="text-center py-3 font-pixel text-xs text-muted-foreground animate-pulse">
-            Tour de l'ennemi...
-          </div>
-        )}
-        {(phase === 'loot' || phase === 'defeat') && (
-          <button onClick={handleEndCombat}
-            className={`w-full px-6 py-3 rounded-md font-pixel text-xs transition-all ${
-              phase === 'loot' ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-destructive text-destructive-foreground hover:opacity-90'}`}>
-            {phase === 'loot' ? "Continuer" : 'Retour au menu'}
-          </button>
-        )}
+          )}
+          {(phase === 'loot' || phase === 'defeat') && (
+            <button onClick={handleEndCombat}
+              className={`w-full py-3 rounded font-pixel text-xs ${
+                phase === 'loot' ? 'bg-green-700 text-white hover:bg-green-600' : 'bg-red-900 text-red-300 hover:bg-red-800'}`}>
+              {phase === 'loot' ? 'Continuer' : 'Menu'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* CSS shake animation */}
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px); }
+          40% { transform: translateX(6px); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
+        }
+      `}</style>
     </div>
   );
 }

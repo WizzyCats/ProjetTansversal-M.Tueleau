@@ -1,6 +1,6 @@
 # CrawlVenture
 
-Dungeon Crawler en tour par tour — RPG de donjon avec salles aleatoires, ennemis, loot et boss final.
+Dungeon Crawler tour par tour — RPG de donjon avec salles aleatoires, ennemis, loot, equipement et boss final.
 
 ## Stack technique
 
@@ -11,8 +11,8 @@ Dungeon Crawler en tour par tour — RPG de donjon avec salles aleatoires, ennem
 | **Tailwind CSS** | Styling (theme dark donjon) |
 | **shadcn/ui** (Radix) | Composants UI de base |
 | **Vitest** + **Playwright** | Tests unitaires & E2E |
-| **Canvas API** | Rendu pixel art (UIManager) |
-| **Web Audio API** | Effets sonores |
+| **Canvas API** | Sprites pixel art |
+| **Web Audio API** | Effets sonores synthetiques |
 | **Lovable** | Scaffolding initial du projet + composants shadcn/ui |
 
 ## Lancer le projet
@@ -31,7 +31,7 @@ Ouvrir **http://localhost:8080**
 | **Baart** | Game Engine & Core | `src/engine/`, `src/screens/`, `App.tsx` |
 | **Lon** | Combat & Personnage | `src/combat/`, `src/screens/CombatScreen.tsx`, `TitleScreen.tsx` |
 | **Jenn** | Generation des niveaux | `src/levels/`, `src/components/DungeonMap.tsx`, `RoomDetail.tsx` |
-| **Noura** | UI / Art & Son | `src/ui/UIManager.js`, `src/ui/crystal_dungeon_demo.html` |
+| **Noura** | UI / Art & Son | `src/ui/`, `src/components/PixelSprite.tsx`, `src/hooks/useSoundFX.ts` |
 
 ## Architecture du code
 
@@ -39,47 +39,50 @@ Ouvrir **http://localhost:8080**
 src/
 ├── engine/                  # BAART — Moteur du jeu
 │   ├── GameContext.tsx       #   Machine a etats (useReducer) + Context React
-│   └── gameTypes.ts          #   Types partages : Player, GameState, GameAction, ClassedPlayer
+│   └── gameTypes.ts          #   Types : Player, Equipment, GameState, GameAction
 │
-├── screens/                 # BAART + LON — Ecrans du jeu
+├── screens/                 # Ecrans du jeu
 │   ├── TitleScreen.tsx       #   Ecran titre + selection de classe + nom (Lon)
-│   ├── GameScreen.tsx        #   Ecran principal : carte + HUD (Baart)
-│   ├── CombatScreen.tsx      #   Combat AFK complet avec logs et level up (Lon)
-│   ├── InventoryScreen.tsx   #   Inventaire avec rarete coloree (Baart)
+│   ├── GameScreen.tsx        #   Carte du donjon + HUD + navigation adjacente (Baart)
+│   ├── CombatScreen.tsx      #   Combat tour par tour style Pokemon (Lon + Baart)
+│   ├── InventoryScreen.tsx   #   Fiche personnage + equipement + inventaire (Baart)
+│   ├── LevelUpScreen.tsx     #   Repartition de points de competence (Baart)
 │   ├── GameOverScreen.tsx    #   Ecran defaite (Baart)
 │   └── WinScreen.tsx         #   Ecran victoire (Baart)
 │
-├── combat/                  # LON — Systeme de combat complet
-│   ├── types.ts              #   Types : PlayerState, CombatEnemy, Card, StatusEffect, etc.
-│   ├── player.ts             #   Factory joueur par classe + helpers de lecture des cartes
+├── combat/                  # LON — Systeme de combat
+│   ├── types.ts              #   Types : PlayerState, CombatEnemy, Card, StatusEffect
+│   ├── player.ts             #   Factory joueur par classe + stats de base
 │   ├── cards.ts              #   56 cartes pour 4 classes (common → epic)
-│   ├── combat.ts             #   Moteur de combat AFK (simulation tick par tick)
-│   ├── levelup.ts            #   Systeme XP, courbe de niveau, tirage de cartes
+│   ├── combat.ts             #   Ancien moteur AFK (conserve pour reference)
+│   ├── skills.ts             #   Competences actives par classe + parchemins apprenables
+│   ├── levelup.ts            #   Courbe XP, tirage de cartes
 │   └── CombatSystem.ts       #   Facade publique + adapteur Enemy → CombatEnemy
 │
 ├── levels/                  # JENN — Generation procedurale
-│   ├── types.ts              #   Types : Room, Enemy, LootItem, DungeonFloor, etc.
+│   ├── types.ts              #   Types : Room, Enemy, LootItem, EquipSlot, EquipStats
 │   ├── dungeonGenerator.ts   #   Generateur de donjon (random walk + seed)
 │   ├── enemyFactory.ts       #   13 templates d'ennemis (minion/elite/boss)
-│   ├── lootTables.ts         #   Tables de loot (armes, armures, potions, scrolls)
+│   ├── lootTables.ts         #   Armes, casques, armures, accessoires, potions, scrolls
 │   └── index.ts              #   Re-exports
 │
 ├── ui/                      # NOURA — UI Pixel Art & Son
-│   ├── UIManager.js          #   Rendu canvas pixel art, sprites, damage numbers, sons
+│   ├── UIManager.js          #   Moteur canvas pixel art, sprites, sons synthetiques
 │   └── crystal_dungeon_demo.html  #   Demo standalone du rendu visuel
 │
-├── components/              # JENN + NOURA — Composants visuels
-│   ├── DungeonMap.tsx        #   Carte interactive du donjon (SVG + boutons)
-│   ├── RoomDetail.tsx        #   Detail d'une salle (ennemis, loot, portes)
-│   ├── PixelCanvas.tsx       #   Wrapper React du canvas Noura (overlay effets visuels)
+├── components/              # Composants visuels partages
+│   ├── PixelSprite.tsx       #   Rendu sprites pixel art Noura en React (Noura + Baart)
+│   ├── PixelCanvas.tsx       #   Canvas overlay pour effets visuels
+│   ├── DungeonMap.tsx        #   Carte interactive du donjon SVG (Jenn)
+│   ├── RoomDetail.tsx        #   Detail salle avec sprites ennemis (Jenn + Noura)
 │   └── ui/                   #   48+ composants shadcn/ui
 │
 ├── hooks/                   # Hooks partages
-│   ├── useSoundFX.ts         #   Hook sons (Noura) — accessible depuis tous les ecrans
+│   ├── useSoundFX.ts         #   Hook sons avec mute (Noura)
 │   ├── use-mobile.tsx        #   Detection mobile
 │   └── use-toast.ts          #   Notifications toast
 │
-├── App.tsx                  # BAART — Point d'entree : ScreenRouter + providers
+├── App.tsx                  # BAART — ScreenRouter + providers
 ├── main.tsx                 # Montage React
 └── index.css                # Theme Tailwind (couleurs donjon, font pixel)
 ```
@@ -96,44 +99,134 @@ const { state, dispatch } = useGame();
 
 **Etats (screens) :**
 ```
-title → (choix classe) → (choix nom) → game → combat → game (victoire) ou gameover (defaite)
-                                                  ↓
-                                                 win (si boss vaincu)
-
-game → inventory → game
+title → (choix classe) → (choix nom) → game → combat → game (victoire)
+                                          ↓       ↓         ↓
+                                      inventory  levelup   gameover
+                                                   ↓
+                                                  win (boss vaincu)
 ```
 
 **Actions disponibles :**
 
 | Action | Effet |
 |--------|-------|
-| `START_GAME` | Cree un joueur + genere un donjon → ecran `game` |
-| `ENTER_ROOM` | Change la salle courante |
-| `ENTER_COMBAT` | Passe a l'ecran combat avec un ennemi |
-| `END_COMBAT_WIN` | Retour a `game`, salle marquee cleared |
+| `START_GAME` | Cree un joueur avec classe + genere un donjon |
+| `SET_PLAYER` | Met a jour le joueur (stats, inventaire, equipement) |
+| `ENTER_ROOM` | Change la salle courante (adjacence verifiee) |
+| `ENTER_COMBAT` | Lance le combat tour par tour |
+| `END_COMBAT_WIN` | Marque la salle cleared, retour a la carte |
 | `END_COMBAT_LOSE` | Ecran game over |
 | `BOSS_DEFEATED` | Ecran victoire |
-| `OPEN_INVENTORY` / `CLOSE_INVENTORY` | Toggle inventaire |
+| `OPEN_INVENTORY` / `CLOSE_INVENTORY` | Fiche personnage + sac |
+| `OPEN_LEVELUP` / `CLOSE_LEVELUP` | Repartition de points |
 | `NEXT_TURN` | Incremente le compteur de tours |
 | `RESET` | Retour au titre |
 
 ### Systeme de combat (Lon)
 
-**Combat AFK** — le joueur regarde son heros se battre automatiquement en temps reel simule.
+**Combat tour par tour** style Pokemon — le joueur choisit une competence, puis l'ennemi attaque.
 
 **4 classes jouables :**
 
-| Classe | Style | Mecanique unique |
-|--------|-------|-----------------|
-| Barbare | Tanky, gros degats | Parade, rage sous 30% PV, soin post-combat |
-| Mage du Chaos | Aleatoire, puissant | Table chaos (10 effets aleatoires), backfire, pet |
-| Voleur | Rapide, esquive | Poison stackable, contre-attaque apres esquive |
-| Necromancien | Invocateur | Minions, barre de mort, festin sur les cadavres |
+| Classe | Ressource | PV | ATK | DEF | Specialite |
+|--------|-----------|-----|-----|-----|------------|
+| Barbare | Stamina (5, +1/tour) | 160 | 22 | 8 | Tank, gros degats |
+| Mage du Chaos | Mana (8, +2/tour) | 90 | 14 | 4 | Sorts, degats aleatoires |
+| Voleur | Stamina (6, +1/tour) | 75 | 12 | 3 | Poison, esquive |
+| Necromancien | Mana (8, +2/tour) | 80 | 10 | 5 | Drain de vie, invocations |
 
-**56 cartes de progression** (14 par classe) : common, uncommon, rare, epic.
-A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere par rarete).
+**Competences par classe (4 de base + parchemins apprenables) :**
+
+*Barbare :*
+| Competence | Cout | Effet |
+|------------|------|-------|
+| Coup de boule | 1 Sta | 0.8x ATK |
+| Coup de hache | 2 Sta | 1.4x ATK |
+| Etreinte | 3 Sta | 30% skip tour ennemi |
+| Hurlement | 2 Sta | +5 ATK pour le combat |
+
+*Voleur :*
+| Competence | Cout | Effet |
+|------------|------|-------|
+| Coup rapide | 1 Sta | 0.7x ATK |
+| Lame empoisonnee | 2 Sta | 0.9x ATK + poison 4/tour 3 tours |
+| Embuscade | 3 Sta | 2.2x ATK |
+| Evasion | 2 Sta | Esquive garantie prochain tour |
+
+*Mage du Chaos :*
+| Competence | Cout | Effet |
+|------------|------|-------|
+| Trait de feu | 2 Mana | 1.2x ATK |
+| Eclair | 3 Mana | 1.6x ATK |
+| Bouclier arcane | 2 Mana | -50% prochain coup recu |
+| Explosion chaotique | 5 Mana | 0.5x a 3x ATK (aleatoire) |
+
+*Necromancien :*
+| Competence | Cout | Effet |
+|------------|------|-------|
+| Drain de vie | 2 Mana | 0.8x ATK + heal 50% degats |
+| Malediction | 3 Mana | ATK ennemi -4 |
+| Invocation spectrale | 4 Mana | 6 dmg/tour pendant 3 tours |
+| Toucher mortel | 5 Mana | 2x ATK |
+
+**Parchemins de competence :** drop en combat (5% minion, 15% elite, 50% boss, 0% auto-run). Permettent de remplacer une competence existante ou de stocker dans l'inventaire.
+
+**Potions :** utilisables en combat (consomme le tour) ou hors combat depuis l'inventaire.
+
+### Systeme de progression
 
 **Courbe XP :** `100 * niveau^1.5` — max niveau 20.
+
+**Level Up :** chaque passage de niveau donne **5 points de competence** a repartir dans :
+
+| Stat | Effet par point |
+|------|----------------|
+| Attaque | +2 ATK |
+| Defense | +1 DEF |
+| Vie | +8 PV max |
+| Mana / Stamina | +1 ressource max |
+| Bonus XP | +5% XP gagne |
+
+Le bonus %XP est applique a chaque gain d'XP en combat.
+
+### Systeme d'equipement
+
+**4 slots :** Arme, Casque, Armure, Accessoire
+
+Les bonus d'equipement s'ajoutent aux stats de base et sont actifs en combat.
+
+| Slot | Exemples | Bonus possibles |
+|------|----------|----------------|
+| Arme | Dague (+2 ATK) → Excalibur (+22 ATK, +10 PV) | ATK, PV |
+| Casque | Capuche (+1 DEF) → Couronne maudite (+4 DEF, +3 Mana) | DEF, PV, Ressource |
+| Armure | Plastron (+2 DEF) → Egide divine (+12 DEF, +20 PV) | DEF, PV, ATK |
+| Accessoire | Anneau (+1/+1) → Oeil du Neant (+8 ATK, +3 DEF) | ATK, DEF, PV, Ressource |
+
+**Drop rates :**
+
+| Tier | Loot (normal) | Loot (auto-run) | Parchemin |
+|------|--------------|-----------------|-----------|
+| Minion | 10% (1 item) | 1% | 5% |
+| Elite | 25% (1 item) | 1% | 15% |
+| Boss | 100% (2-3 items) | — | 50% |
+
+### Mode Auto-Run
+
+Permet de **farmer de l'XP** sur une salle deja cleared :
+- Le heros attaque automatiquement avec son meilleur skill payable
+- Les ennemis respawn a 60% PV a chaque run
+- Enchaine les combats en boucle sans intervention
+- **Arret automatique** si : mort (full HP restore) ou level up (repartition de points)
+- **Bouton Stop** pour arreter manuellement et revenir a la carte
+- **Bouton Mute** pour couper les sons pendant le farm
+- Loot reduit a 1%, aucun parchemin
+
+### Navigation du donjon (Baart + Jenn)
+
+- **Adjacence obligatoire** — on ne peut se deplacer que vers les salles connectees par une porte
+- **Collecte auto** du loot dans les salles tresor
+- **Salles recommencables** — bouton "Recommencer la salle" + "Auto-Run" sur les salles deja cleared
+- Compteur de tours dans le HUD
 
 ### Generation de donjon (Jenn)
 
@@ -146,39 +239,26 @@ A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere p
 
 ### UI Pixel Art & Sons (Noura)
 
-`UIManager.js` fournit un systeme de rendu canvas + audio complet, integre dans React via :
-- `PixelCanvas.tsx` — Composant React qui superpose un canvas transparent pour les effets visuels
-- `useSoundFX.ts` — Hook qui expose tous les sons depuis n'importe quel composant
+**Sprites pixel art** integres dans tout le jeu via `PixelSprite.tsx` :
+- **Heros :** fee (mage), rose (barbare), ombre (voleur), skull (necro) — affiches en combat, HUD, inventaire, selection de classe
+- **Ennemis :** slime, skull, boss, fairy — affiches en combat et dans le detail des salles
+- **Decor combat :** tiles mur, sol, porte, cristaux — fond de l'arene de combat style Pokemon
+- **Items :** potion, sword — references visuelles
 
-**Effets visuels (canvas overlay en combat) :**
-- **Damage numbers** flottants avec animation (degats, soins, crit, miss)
-- **Effets de sorts** : slash, petal, ice, lightning, heal, explosion
-- **Sprites pixel art** : heros (fee, rose, ombre), ennemis (slime, boss, skull)
-
-**Sons synthetiques (Web Audio API) :**
+**Sons synthetiques (Web Audio API) :** integres via le hook `useSoundFX`
 
 | Son | Declencheur |
 |-----|------------|
-| `slash` | Debut de combat |
-| `hit` | Attaque / frappe |
-| `heal` | Soin / survie |
-| `lightning` | Coup critique / chaos |
-| `death` | Mort ennemi / game over |
+| `hit` | Attaque en combat |
+| `heal` | Soin (potion, drain de vie) |
+| `lightning` | Coup critique, sorts puissants |
+| `death` | Mort ennemi, game over |
 | `loot` | Entree salle tresor |
-| `levelup` | Victoire / level up |
-| `sparkle` | Selection classe / invocation |
-| `menu` | Navigation ecrans |
+| `levelup` | Victoire, level up |
+| `sparkle` | Selection classe, invocation, equipement |
+| `menu` | Navigation, esquive |
 
-**Palette coherente** : rose/lavande/menthe/or sur fond sombre
-
-### Stats de base par classe
-
-| Classe | PV | ATK | DEF | Esquive | Crit | Cooldown |
-|--------|----|-----|-----|---------|------|----------|
-| Barbare | 160 | 22 | 8 | 5% | 8% | 3.5s |
-| Mage Chaos | 90 | 14 | 4 | 8% | 10% | 2.5s |
-| Voleur | 75 | 12 | 3 | 22% | 15% | 1.8s |
-| Necromancien | 80 | 10 | 5 | 6% | 6% | 2.5s |
+**Mute** disponible en auto-run via le bouton dans le bandeau.
 
 ### Ennemis notables
 
@@ -192,36 +272,43 @@ A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere p
 | Liche supreme | Boss | 150 | 30 | 10 | 180 |
 | Demon des abysses | Boss | 250 | 22 | 18 | 200 |
 
+## Ce qui a ete fait
+
+- [x] Game engine avec machine a etats (useReducer)
+- [x] Selection de classe avec sprites pixel art
+- [x] Generation procedurale de donjon (random walk + seed)
+- [x] Navigation adjacente (portes uniquement)
+- [x] Combat tour par tour avec competences (stamina/mana)
+- [x] 4 classes jouables avec 4 competences chacune
+- [x] Systeme d'equipement (4 slots : arme, casque, armure, accessoire)
+- [x] Fiche personnage complete avec stats et equipement
+- [x] Level up avec 5 points de competence a repartir
+- [x] Bonus %XP cumulable
+- [x] Parchemins de competence (drop + apprentissage)
+- [x] Potions utilisables en combat et hors combat
+- [x] Mode auto-run pour farm XP
+- [x] Sprites pixel art Noura integres partout
+- [x] Sons synthetiques sur tous les ecrans
+- [x] Fond d'arene de combat avec tiles pixel art
+- [x] Collecte auto du loot dans les salles tresor
+- [x] Salles recommencables pour farm
+
 ## Ce qui reste a faire
 
-### Integration (fait)
-- [x] Connecter UIManager.js (canvas Noura) comme composant React → `PixelCanvas.tsx`
-- [x] Ajouter les sons de Noura (Web Audio API) aux evenements de combat → `useSoundFX.ts`
-- [x] Sons sur tous les ecrans (titre, game, combat, game over, victoire)
-- [x] Effets visuels canvas (damage numbers, slash, explosion) en overlay combat
-
-### Gameplay
-- [ ] Collecte automatique du loot en entrant dans une salle treasure
-- [ ] Navigation salle par salle (verifier adjacence avant de bouger)
-- [ ] Multi-etages (la structure existe deja dans `generateDungeon()`)
+- [ ] Multi-etages (la structure existe dans `generateDungeon()`)
 - [ ] Sauvegarde locale (localStorage)
-- [ ] Utilisation des potions/scrolls en combat
-- [ ] Equipement d'armes/armures depuis l'inventaire
-
-### Polish
 - [ ] Animations CSS sur les transitions d'ecran
-- [ ] Afficher les sprites pixel art (heros/ennemis) dans les panneaux React du combat
-- [ ] Ecran titre anime avec particules canvas de Noura
+- [ ] Equilibrage difficulte / economie
 
 ## Branches
 
 | Branche | Contenu |
 |---------|---------|
-| `main` | Base commune (Baart + Jenn) |
+| `main` | Base commune |
 | `brt` | Branche de Baart (Game Engine) |
-| `DevL0n` | Branche de Lon (Combat complet) |
+| `DevL0n` | Branche de Lon (Combat) |
 | `NOURA` | Branche de Noura (UI pixel art) |
-| `MergeTotal` | Fusion de toutes les branches |
+| `MergeTotal` | Fusion + toutes les features |
 
 ## Scripts
 

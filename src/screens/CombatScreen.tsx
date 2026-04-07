@@ -98,11 +98,11 @@ export default function CombatScreen() {
   const [status, setStatus] = useState<StatusEffects>({ ...EMPTY_STATUS });
   const [busy, setBusy] = useState(false);
 
-  // Init
+  // Init — ressource pleine à chaque nouveau combat
   useEffect(() => {
     if (!activeEnemy || !player) return;
     setPlayerHp(player.hp);
-    setResource(player.resource);
+    setResource(player.maxResource);
     setEnemyHp(activeEnemy.hp);
     setEnemyMaxHp(activeEnemy.maxHp);
     setPhase('player_turn');
@@ -269,7 +269,6 @@ export default function CombatScreen() {
   const doFlee = () => {
     if (busy || phase !== 'player_turn') return;
     setBusy(true);
-    if (activeEnemy.tier === 'boss') { addLog('Impossible de fuir le boss !', 'system'); setBusy(false); return; }
     if (chance(50)) {
       addLog('Fuite reussie !', 'system');
       sfx.playMenu();
@@ -614,9 +613,9 @@ export default function CombatScreen() {
                 className="flex-1 px-3 py-2 bg-green-600/80 text-white rounded-md font-pixel text-xs hover:opacity-90 disabled:opacity-30">
                 Potion ({potionCount})
               </button>
-              <button onClick={doFlee} disabled={busy}
+              <button onClick={doFlee} disabled={busy || activeEnemy.tier === 'boss'}
                 className="flex-1 px-3 py-2 bg-secondary text-secondary-foreground rounded-md font-pixel text-xs hover:opacity-80 disabled:opacity-40">
-                Fuir
+                {activeEnemy.tier === 'boss' ? 'Pas de fuite' : 'Fuir'}
               </button>
             </div>
           </>

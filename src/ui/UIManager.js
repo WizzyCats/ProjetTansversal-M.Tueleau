@@ -1078,11 +1078,15 @@ const UIManager = (() => {
 
     const t = _titleAnim;
 
-    if (_screen === 'title')       _drawTitle(t);
+    if (_screen === '_overlay') {
+      // Mode overlay React : uniquement les effets visuels, pas de HUD
+      _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
+      _drawEffects();
+      _drawFloatingNums();
+    }
+    else if (_screen === 'title')       _drawTitle(t);
     else if (_screen === 'classSelect') _drawClassSelect(t);
     else if (_screen === 'game') {
-      // Le rendu du jeu lui-même est géré par les autres membres.
-      // UIManager se superpose :
       drawHUD();
       _drawLog();
       _drawEffects();

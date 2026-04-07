@@ -30,7 +30,9 @@ const PixelCanvas = forwardRef<PixelCanvasHandle, PixelCanvasProps>(
     useEffect(() => {
       if (!canvasRef.current || initRef.current) return;
       UIManager.init(canvasRef.current, {});
-      UIManager.showScreen('game'); // Mode overlay : pas de title screen
+      // On ne montre aucun écran du UIManager — on utilise uniquement
+      // les damage numbers, effets visuels et sons en overlay
+      UIManager.showScreen('_overlay');
       initRef.current = true;
     }, []);
 

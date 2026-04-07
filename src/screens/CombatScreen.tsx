@@ -9,6 +9,7 @@ import type { LootItem } from '../levels/types';
 import { generateLoot } from '../levels/lootTables';
 import { getRandomScrollDrop, type Skill } from '../combat/skills';
 import PixelCanvas, { type PixelCanvasHandle } from '../components/PixelCanvas';
+import PixelSprite, { getEnemySpriteName, getHeroSpriteName } from '../components/PixelSprite';
 import { useSoundFX } from '../hooks/useSoundFX';
 
 // ---------------------------------------------------------------------------
@@ -543,9 +544,14 @@ export default function CombatScreen() {
         {/* Joueur */}
         <div className={`bg-card border rounded-lg p-3 space-y-1 transition-all ${
           phase === 'player_turn' ? 'border-primary' : 'border-border'}`}>
-          <div className="flex justify-between items-center">
-            <p className="font-pixel text-xs text-primary truncate">{player.name}</p>
-            <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
+          <div className="flex items-center gap-2">
+            <PixelSprite name={getHeroSpriteName(player.className)} scale={3} />
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center">
+                <p className="font-pixel text-xs text-primary truncate">{player.name}</p>
+                <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
+              </div>
+            </div>
           </div>
           <HpBar hp={playerHp} maxHp={effectiveMaxHp} />
           <p className="text-xs text-muted-foreground">{Math.max(playerHp, 0)} / {effectiveMaxHp} PV</p>
@@ -572,7 +578,9 @@ export default function CombatScreen() {
             <p className="font-pixel text-xs text-destructive truncate">{activeEnemy.name}</p>
             {activeEnemy.tier === 'boss' && <span className="text-xs text-destructive font-pixel">BOSS</span>}
           </div>
-          <p className="text-3xl text-center">{activeEnemy.icon}</p>
+          <div className="flex justify-center py-1">
+            <PixelSprite name={getEnemySpriteName(activeEnemy.name)} scale={5} />
+          </div>
           <Bar value={enemyHp} max={enemyMaxHp} color="bg-red-500" />
           <p className="text-xs text-muted-foreground">{Math.max(enemyHp, 0)} / {enemyMaxHp} PV</p>
           <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">

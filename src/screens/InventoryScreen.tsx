@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useGame } from '../engine/GameContext';
 import { useSoundFX } from '../hooks/useSoundFX';
+import PixelSprite, { getHeroSpriteName } from '../components/PixelSprite';
 import type { LootItem, EquipSlot } from '../levels/types';
 
 const RARITY_COLORS: Record<string, string> = {
@@ -165,9 +166,12 @@ export default function InventoryScreen() {
           {/* Stats */}
           <div className="bg-card border border-border rounded-lg p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <div>
-                <p className="font-pixel text-sm text-primary">{player.name}</p>
-                <p className="text-xs text-muted-foreground">{CLASS_LABELS[player.className] ?? player.className} — Niveau {player.level}</p>
+              <div className="flex items-center gap-3">
+                <PixelSprite name={getHeroSpriteName(player.className)} scale={5} />
+                <div>
+                  <p className="font-pixel text-sm text-primary">{player.name}</p>
+                  <p className="text-xs text-muted-foreground">{CLASS_LABELS[player.className] ?? player.className} — Niveau {player.level}</p>
+                </div>
               </div>
               <div className="text-xs text-muted-foreground text-right">
                 <p>{player.gold} or</p>

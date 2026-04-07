@@ -8,6 +8,7 @@ import { useGame } from '../engine/GameContext';
 import { Room } from '../levels/types';
 import DungeonMap from '../components/DungeonMap';
 import RoomDetail from '../components/RoomDetail';
+import PixelSprite, { getHeroSpriteName } from '../components/PixelSprite';
 import { useSoundFX } from '../hooks/useSoundFX';
 
 export default function GameScreen() {
@@ -75,7 +76,8 @@ export default function GameScreen() {
       </header>
 
       {/* HUD Joueur */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
+        <PixelSprite name={getHeroSpriteName(player.className)} scale={3} />
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
           {player.hp} / {player.maxHp} PV
         </div>

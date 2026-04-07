@@ -7,6 +7,7 @@ import { useGame } from '../engine/GameContext';
 import { CLASS_NAMES, CLASS_LABELS, CLASS_DESCRIPTIONS } from '../combat/CombatSystem';
 import type { ClassName } from '../combat/types';
 import { useSoundFX } from '../hooks/useSoundFX';
+import PixelSprite, { getHeroSpriteName } from '../components/PixelSprite';
 
 const CLASS_ICONS: Record<ClassName, string> = {
   barbare:      '⚔️',
@@ -64,7 +65,7 @@ export default function TitleScreen() {
               selected === cls ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-border bg-card hover:border-primary/50'
             }`}>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">{CLASS_ICONS[cls]}</span>
+              <PixelSprite name={getHeroSpriteName(cls)} scale={4} />
               <div>
                 <p className="font-pixel text-sm text-primary">{CLASS_LABELS[cls]}</p>
                 <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">{CLASS_META[cls].style}</span>
@@ -91,7 +92,7 @@ export default function TitleScreen() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 p-6">
       <div className="text-center">
-        <span className="text-6xl">{selected ? CLASS_ICONS[selected] : ''}</span>
+        {selected && <PixelSprite name={getHeroSpriteName(selected)} scale={6} />}
         <h2 className="font-pixel text-xl text-primary mt-3">{selected ? CLASS_LABELS[selected] : ''}</h2>
       </div>
       <div className="w-full max-w-sm space-y-4">

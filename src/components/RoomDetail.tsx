@@ -1,4 +1,5 @@
 import { Room } from '../levels/types';
+import PixelSprite, { getEnemySpriteName } from './PixelSprite';
 
 interface RoomDetailProps {
   room: Room | null;
@@ -46,7 +47,7 @@ export default function RoomDetail({ room }: RoomDetailProps) {
           <div className="space-y-1">
             {room.enemies.map(enemy => (
               <div key={enemy.id} className="flex items-center gap-2 text-sm bg-secondary/50 rounded px-2 py-1">
-                <span>{enemy.icon}</span>
+                <PixelSprite name={getEnemySpriteName(enemy.name)} scale={2} />
                 <span className="text-foreground">{enemy.name}</span>
                 <span className="text-muted-foreground ml-auto text-xs">
                   ❤️{enemy.hp} ⚔️{enemy.attack} 🛡️{enemy.defense}

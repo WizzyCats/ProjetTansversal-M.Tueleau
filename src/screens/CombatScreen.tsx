@@ -498,7 +498,11 @@ export default function CombatScreen() {
       {isAutoRun && (
         <div className="flex items-center justify-between bg-amber-600/20 border border-amber-500/30 px-4 py-2">
           <span className="font-pixel text-xs text-amber-400 animate-pulse">AUTO-RUN #{autoRunCount + 1}</span>
-          <button onClick={() => { stopAutoRun(); setAutoRunCount(0); }}
+          <button onClick={() => {
+              stopAutoRun(); setAutoRunCount(0);
+              const p = state.player!;
+              dispatch({ type: 'END_COMBAT_WIN', player: { ...p, hp: Math.max(playerHp, 1) } });
+            }}
             className="px-3 py-1 bg-red-600/80 text-white rounded font-pixel text-xs hover:opacity-90">
             Stop
           </button>

@@ -41,9 +41,12 @@ const chance = (pct: number) => Math.random() * 100 < pct;
 function xpForLevel(level: number) { return Math.round(100 * Math.pow(level, 1.5)); }
 
 function generateCombatDrops(tier: string): LootItem[] {
-  const count = tier === 'boss' ? rand(3, 5) : tier === 'elite' ? rand(1, 3) : rand(0, 1);
-  if (count === 0) return [];
-  return generateLoot(count, 3, () => Math.random());
+  // Boss : 100% drop 2-3 items
+  if (tier === 'boss') return generateLoot(rand(2, 3), 3, () => Math.random());
+  // Elite : 25% chance de drop 1 item
+  if (tier === 'elite') return chance(25) ? generateLoot(1, 3, () => Math.random()) : [];
+  // Minion : 10% chance de drop 1 item
+  return chance(10) ? generateLoot(1, 3, () => Math.random()) : [];
 }
 
 // ---------------------------------------------------------------------------

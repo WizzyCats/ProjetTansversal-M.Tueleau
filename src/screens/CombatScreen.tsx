@@ -314,27 +314,35 @@ export default function CombatScreen() {
   };
 
   // ===== VICTOIRE =====
+  const [levelsGained, setLevelsGained] = useState(0);
+
   const handleVictory = () => {
-    const xp = activeEnemy.xpReward;
-    const goldDrop = rand(5, 15 + xp);
+    // XP avec bonus %
+    const rawXp = activeEnemy.xpReward;
+    const xp = Math.round(rawXp * (1 + player.xpBonus / 100));
+    const goldDrop = rand(5, 15 + rawXp);
     const combatDrops = generateCombatDrops(activeEnemy.tier);
     setXpGained(xp); setDrops(combatDrops);
     const scroll = chance(activeEnemy.tier === 'boss' ? 60 : 30) ? getRandomScrollDrop(player.className) : null;
     setScrollDrop(scroll);
     sfx.playLevelUp();
-    addLog(`${activeEnemy.name} vaincu ! +${xp} XP +${goldDrop} or`, 'loot');
+    addLog(`${activeEnemy.name} vaincu ! +${xp} XP${player.xpBonus > 0 ? ` (+${player.xpBonus}%)` : ''} +${goldDrop} or`, 'loot');
     combatDrops.forEach(d => addLog(`${d.icon} ${d.name}`, 'loot'));
     if (scroll) addLog(`Parchemin : ${scroll.icon} ${scroll.name}`, 'loot');
 
-    let newXp = player.xp + xp, newLv = player.level, newMHp = player.maxHp, newAtk = player.attack, newDef = player.defense, xpN = player.xpToNextLevel;
+    let newXp = player.xp + xp, newLv = player.level, xpN = player.xpToNextLevel;
+    let lvGained = 0;
     while (newXp >= xpN && newLv < 20) {
-      newXp -= xpN; newLv++; newMHp += 8; newAtk += 2; newDef += 1; xpN = xpForLevel(newLv + 1);
-      addLog(`LEVEL UP ! Niveau ${newLv}`, 'system'); sfx.playLevelUp();
+      newXp -= xpN; newLv++; lvGained++; xpN = xpForLevel(newLv + 1);
+      addLog(`LEVEL UP ! Niveau ${newLv} — 5 points a repartir !`, 'system'); sfx.playLevelUp();
     }
+    setLevelsGained(lvGained);
+
     dispatch({ type: 'SET_PLAYER', player: {
-      ...player, hp: Math.min(playerHp, newMHp), maxHp: newMHp, attack: newAtk, defense: newDef,
-      level: newLv, xp: newXp, xpToNextLevel: xpN, gold: player.gold + goldDrop, resource,
+      ...player, hp: playerHp, level: newLv, xp: newXp, xpToNextLevel: xpN,
+      gold: player.gold + goldDrop, resource,
       inventory: [...player.inventory, ...combatDrops],
+      statPoints: player.statPoints + lvGained * 5,
     }});
     setPhase(scroll ? 'learn_skill' : 'loot');
   };
@@ -360,8 +368,15 @@ export default function CombatScreen() {
   // ===== FIN =====
   const handleEndCombat = () => {
     if (phase === 'loot') {
-      if (activeEnemy.tier === 'boss') dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
-      else dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
+      if (activeEnemy.tier === 'boss') {
+        dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
+      } else {
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp, resource } });
+      }
+      // Ouvrir l'écran level up si des points sont disponibles
+      if (levelsGained > 0) {
+        setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 100);
+      }
     } else {
       dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
     }

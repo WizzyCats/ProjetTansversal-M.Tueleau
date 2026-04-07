@@ -9,6 +9,7 @@ import TitleScreen     from "./screens/TitleScreen";
 import GameScreen      from "./screens/GameScreen";
 import CombatScreen    from "./screens/CombatScreen";
 import InventoryScreen from "./screens/InventoryScreen";
+import LevelUpScreen   from "./screens/LevelUpScreen";
 import GameOverScreen  from "./screens/GameOverScreen";
 import WinScreen       from "./screens/WinScreen";
 
@@ -23,6 +24,7 @@ function ScreenRouter() {
     case 'game':      return <GameScreen />;
     case 'combat':    return <CombatScreen />;
     case 'inventory': return <InventoryScreen />;
+    case 'levelup':   return <LevelUpScreen />;
     case 'gameover':  return <GameOverScreen />;
     case 'win':       return <WinScreen />;
     default:          return <TitleScreen />;

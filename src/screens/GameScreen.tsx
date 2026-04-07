@@ -55,16 +55,12 @@ export default function GameScreen() {
       dispatch({ type: 'SET_PLAYER', player: updatedPlayer });
     }
 
-    // S'il y a des ennemis non vaincus → combat
+    // S'il y a des ennemis non vaincus → combat auto
     const activeEnemies = room.enemies.filter(e => e.hp > 0);
     if (activeEnemies.length > 0 && !room.cleared) {
       dispatch({ type: 'ENTER_COMBAT', enemy: activeEnemies[0] });
-    } else if (room.cleared && room.type !== 'start' && room.type !== 'treasure' && room.enemies.length > 0) {
-      // Salle déjà cleared → respawn ennemis affaiblis pour farmer
-      room.enemies.forEach(e => { e.hp = Math.round(e.maxHp * 0.6); });
-      room.cleared = false;
-      dispatch({ type: 'ENTER_COMBAT', enemy: room.enemies[0] });
     }
+    // Salles cleared : on peut cliquer pour voir les détails, pas de combat auto
   }, [floor, currentRoomId, dispatch, sfx, player]);
 
   const selectedRoom = floor?.rooms.find(r => r.id === currentRoomId) ?? null;
@@ -102,6 +98,15 @@ export default function GameScreen() {
           XP {player.xp}/{player.xpToNextLevel}
         </div>
 
+        {player.statPoints > 0 && (
+          <button
+            onClick={() => dispatch({ type: 'OPEN_LEVELUP' })}
+            className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-pixel animate-pulse"
+          >
+            +{player.statPoints} pts
+          </button>
+        )}
+
         <button
           onClick={() => dispatch({ type: 'OPEN_INVENTORY' })}
           className="ml-auto bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-xs font-pixel hover:opacity-80"
@@ -121,6 +126,20 @@ export default function GameScreen() {
         </div>
         <div>
           <RoomDetail room={selectedRoom} />
+          {/* Bouton recommencer si salle cleared */}
+          {selectedRoom && selectedRoom.cleared && selectedRoom.type !== 'start' && selectedRoom.type !== 'treasure' && selectedRoom.enemies.length > 0 && selectedRoom.id === currentRoomId && (
+            <button
+              onClick={() => {
+                selectedRoom.enemies.forEach(e => { e.hp = Math.round(e.maxHp * 0.6); });
+                selectedRoom.cleared = false;
+                sfx.playSlash();
+                dispatch({ type: 'ENTER_COMBAT', enemy: selectedRoom.enemies[0] });
+              }}
+              className="w-full mt-3 py-2 bg-destructive/80 text-destructive-foreground rounded-md font-pixel text-xs hover:opacity-90"
+            >
+              Recommencer la salle
+            </button>
+          )}
         </div>
       </div>
 

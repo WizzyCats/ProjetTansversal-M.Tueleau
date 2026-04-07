@@ -13,6 +13,7 @@ export type GameScreen =
   | 'game'
   | 'combat'
   | 'inventory'
+  | 'levelup'
   | 'gameover'
   | 'win';
 
@@ -38,6 +39,8 @@ export interface Player {
   resourceRegen: number;
   resourceType: ResourceType;
   equipment: Equipment;
+  statPoints: number;       // points à répartir
+  xpBonus: number;          // bonus %XP (ex: 10 = +10%)
 }
 
 // ── État global du jeu ──────────────────────────────────────
@@ -65,6 +68,8 @@ export type GameAction =
   | { type: 'BOSS_DEFEATED'; bossName: string }
   | { type: 'OPEN_INVENTORY' }
   | { type: 'CLOSE_INVENTORY' }
+  | { type: 'OPEN_LEVELUP' }
+  | { type: 'CLOSE_LEVELUP' }
   | { type: 'NEXT_TURN' }
   | { type: 'GAME_OVER'; message: string }
   | { type: 'WIN'; message: string }
@@ -89,4 +94,6 @@ export const DEFAULT_PLAYER: Player = {
   resourceRegen: 1,
   resourceType: 'stamina',
   equipment: { weapon: null, helmet: null, chest: null, accessory: null },
+  statPoints: 0,
+  xpBonus: 0,
 };

@@ -97,6 +97,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'CLOSE_INVENTORY':
       return { ...state, screen: state.previousScreen ?? 'game', previousScreen: null };
 
+    case 'OPEN_LEVELUP':
+      return { ...state, screen: 'levelup', previousScreen: state.screen };
+
+    case 'CLOSE_LEVELUP':
+      return { ...state, screen: state.previousScreen ?? 'game', previousScreen: null };
+
     case 'NEXT_TURN':
       return { ...state, turn: state.turn + 1 };
 

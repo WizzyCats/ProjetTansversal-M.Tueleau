@@ -376,6 +376,15 @@ export default function CombatScreen() {
       inventory: [...player.inventory, ...combatDrops],
       statPoints: player.statPoints + lvGained * 5,
     }});
+
+    if (isAutoRun && lvGained === 0 && !scroll) {
+      // Auto-run : relance direct sans passer par l'écran loot
+      setTimeout(() => continueAutoRun(), 300);
+      return;
+    }
+    if (isAutoRun && lvGained > 0) {
+      stopAutoRun();
+    }
     setPhase(scroll ? 'learn_skill' : 'loot');
   };
 

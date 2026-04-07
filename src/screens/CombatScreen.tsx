@@ -348,7 +348,7 @@ export default function CombatScreen() {
     const rawXp = activeEnemy.xpReward;
     const xp = Math.round(rawXp * (1 + player.xpBonus / 100));
     const goldDrop = rand(5, 15 + rawXp);
-    const combatDrops = generateCombatDrops(activeEnemy.tier);
+    const combatDrops = (isAutoRun && !chance(1)) ? [] : generateCombatDrops(activeEnemy.tier);
     setXpGained(xp); setDrops(combatDrops);
     const scroll = chance(activeEnemy.tier === 'boss' ? 60 : 30) ? getRandomScrollDrop(player.className) : null;
     setScrollDrop(scroll);

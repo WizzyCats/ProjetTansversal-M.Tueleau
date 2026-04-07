@@ -11,6 +11,8 @@ Dungeon Crawler en tour par tour — RPG de donjon avec salles aleatoires, ennem
 | **Tailwind CSS** | Styling (theme dark donjon) |
 | **shadcn/ui** (Radix) | Composants UI de base |
 | **Vitest** + **Playwright** | Tests unitaires & E2E |
+| **Canvas API** | Rendu pixel art (UIManager) |
+| **Web Audio API** | Effets sonores |
 
 ## Lancer le projet
 
@@ -26,9 +28,9 @@ Ouvrir **http://localhost:8080**
 | Membre | Partie | Dossiers |
 |--------|--------|----------|
 | **Baart** | Game Engine & Core | `src/engine/`, `src/screens/`, `App.tsx` |
-| **Lon** | Combat & Personnage | A integrer dans `src/screens/CombatScreen.tsx`, `InventoryScreen.tsx` |
+| **Lon** | Combat & Personnage | `src/combat/`, `src/screens/CombatScreen.tsx`, `TitleScreen.tsx` |
 | **Jenn** | Generation des niveaux | `src/levels/`, `src/components/DungeonMap.tsx`, `RoomDetail.tsx` |
-| **Noura** | UI / Art & Son | Styles dans `src/index.css`, visuels des screens |
+| **Noura** | UI / Art & Son | `src/ui/UIManager.js`, `src/ui/crystal_dungeon_demo.html` |
 
 ## Architecture du code
 
@@ -36,15 +38,23 @@ Ouvrir **http://localhost:8080**
 src/
 ├── engine/                  # BAART — Moteur du jeu
 │   ├── GameContext.tsx       #   Machine a etats (useReducer) + Context React
-│   └── gameTypes.ts          #   Types partages : Player, GameState, GameAction
+│   └── gameTypes.ts          #   Types partages : Player, GameState, GameAction, ClassedPlayer
 │
-├── screens/                 # BAART — Ecrans du jeu (routing par etat)
-│   ├── TitleScreen.tsx       #   Ecran titre → startGame()
-│   ├── GameScreen.tsx        #   Ecran principal : carte + HUD
-│   ├── CombatScreen.tsx      #   STUB pour Lon (combat placeholder)
-│   ├── InventoryScreen.tsx   #   STUB pour Lon (inventaire placeholder)
-│   ├── GameOverScreen.tsx    #   Ecran defaite → resetGame()
-│   └── WinScreen.tsx         #   Ecran victoire → resetGame()
+├── screens/                 # BAART + LON — Ecrans du jeu
+│   ├── TitleScreen.tsx       #   Ecran titre + selection de classe + nom (Lon)
+│   ├── GameScreen.tsx        #   Ecran principal : carte + HUD (Baart)
+│   ├── CombatScreen.tsx      #   Combat AFK complet avec logs et level up (Lon)
+│   ├── InventoryScreen.tsx   #   Inventaire avec rarete coloree (Baart)
+│   ├── GameOverScreen.tsx    #   Ecran defaite (Baart)
+│   └── WinScreen.tsx         #   Ecran victoire (Baart)
+│
+├── combat/                  # LON — Systeme de combat complet
+│   ├── types.ts              #   Types : PlayerState, CombatEnemy, Card, StatusEffect, etc.
+│   ├── player.ts             #   Factory joueur par classe + helpers de lecture des cartes
+│   ├── cards.ts              #   56 cartes pour 4 classes (common → epic)
+│   ├── combat.ts             #   Moteur de combat AFK (simulation tick par tick)
+│   ├── levelup.ts            #   Systeme XP, courbe de niveau, tirage de cartes
+│   └── CombatSystem.ts       #   Facade publique + adapteur Enemy → CombatEnemy
 │
 ├── levels/                  # JENN — Generation procedurale
 │   ├── types.ts              #   Types : Room, Enemy, LootItem, DungeonFloor, etc.
@@ -52,6 +62,10 @@ src/
 │   ├── enemyFactory.ts       #   13 templates d'ennemis (minion/elite/boss)
 │   ├── lootTables.ts         #   Tables de loot (armes, armures, potions, scrolls)
 │   └── index.ts              #   Re-exports
+│
+├── ui/                      # NOURA — UI Pixel Art & Son
+│   ├── UIManager.js          #   Rendu canvas pixel art, sprites, damage numbers, sons
+│   └── crystal_dungeon_demo.html  #   Demo standalone du rendu visuel
 │
 ├── components/              # JENN + NOURA — Composants visuels
 │   ├── DungeonMap.tsx        #   Carte interactive du donjon (SVG + boutons)
@@ -75,9 +89,9 @@ const { state, dispatch } = useGame();
 
 **Etats (screens) :**
 ```
-title → game → combat → game (victoire) ou gameover (defaite)
-                  ↓
-                 win (si boss vaincu)
+title → (choix classe) → (choix nom) → game → combat → game (victoire) ou gameover (defaite)
+                                                  ↓
+                                                 win (si boss vaincu)
 
 game → inventory → game
 ```
@@ -96,6 +110,24 @@ game → inventory → game
 | `NEXT_TURN` | Incremente le compteur de tours |
 | `RESET` | Retour au titre |
 
+### Systeme de combat (Lon)
+
+**Combat AFK** — le joueur regarde son heros se battre automatiquement en temps reel simule.
+
+**4 classes jouables :**
+
+| Classe | Style | Mecanique unique |
+|--------|-------|-----------------|
+| Barbare | Tanky, gros degats | Parade, rage sous 30% PV, soin post-combat |
+| Mage du Chaos | Aleatoire, puissant | Table chaos (10 effets aleatoires), backfire, pet |
+| Voleur | Rapide, esquive | Poison stackable, contre-attaque apres esquive |
+| Necromancien | Invocateur | Minions, barre de mort, festin sur les cadavres |
+
+**56 cartes de progression** (14 par classe) : common, uncommon, rare, epic.
+A chaque level up, le joueur choisit 1 carte parmi 3 proposees (tirage pondere par rarete).
+
+**Courbe XP :** `100 * niveau^1.5` — max niveau 20.
+
 ### Generation de donjon (Jenn)
 
 - **Algorithme :** Random walk depuis le centre d'une grille
@@ -105,49 +137,67 @@ game → inventory → game
 - **Loot :** Poids par rarete : common(50) > uncommon(30) > rare(13) > epic(5) > legendary(2)
 - **Connexions :** Portes bidirectionnelles + 20% chance de chemins croises
 
-### Joueur par defaut
+### UI Pixel Art (Noura)
 
-```
-HP: 100 | ATK: 15 | DEF: 5 | Niveau: 1 | Or: 0
-```
+`UIManager.js` fournit un systeme de rendu canvas complet :
+- **Sprites pixel art** : heros (fee, rose, ombre), ennemis (slime, boss)
+- **Damage numbers** flottants avec animation
+- **Barres de PV/MP/XP** avec gradients
+- **Log de combat** affiche en temps reel
+- **Web Audio API** : sons synthetiques (attaque, soin, loot, level up)
+- **Ecrans** : titre anime avec particules, selection de classe, game, game over, victoire
+- **Palette coherente** : rose/lavande/menthe/or sur fond sombre
+
+### Stats de base par classe
+
+| Classe | PV | ATK | DEF | Esquive | Crit | Cooldown |
+|--------|----|-----|-----|---------|------|----------|
+| Barbare | 160 | 22 | 8 | 5% | 8% | 3.5s |
+| Mage Chaos | 90 | 14 | 4 | 8% | 10% | 2.5s |
+| Voleur | 75 | 12 | 3 | 22% | 15% | 1.8s |
+| Necromancien | 80 | 10 | 5 | 6% | 6% | 2.5s |
 
 ### Ennemis notables
 
 | Nom | Tier | HP | ATK | DEF | XP |
 |-----|------|----|-----|-----|----|
 | Rat geant | Minion | 15 | 3 | 1 | 5 |
+| Gobelin | Minion | 18 | 6 | 2 | 10 |
 | Chevalier noir | Elite | 60 | 12 | 8 | 30 |
+| Ogre | Elite | 80 | 15 | 5 | 35 |
 | Dragon ancien | Boss | 200 | 25 | 15 | 150 |
 | Liche supreme | Boss | 150 | 30 | 10 | 180 |
+| Demon des abysses | Boss | 250 | 22 | 18 | 200 |
 
 ## Ce qui reste a faire
 
-### Lon — Combat & Personnage
-- [ ] Systeme de combat tour par tour reel (remplacer les boutons placeholder)
-- [ ] Calcul de degats (ATK - DEF, min 1)
-- [ ] Systeme de level up (XP → niveau)
+### Integration
+- [ ] Connecter UIManager.js (canvas Noura) comme composant React pour le rendu en jeu
+- [ ] Synchroniser les sprites pixel art avec le systeme de combat de Lon
+- [ ] Ajouter les sons de Noura (Web Audio API) aux evenements de combat
+
+### Gameplay
+- [ ] Collecte automatique du loot en entrant dans une salle treasure
+- [ ] Navigation salle par salle (verifier adjacence avant de bouger)
+- [ ] Multi-etages (la structure existe deja dans `generateDungeon()`)
+- [ ] Sauvegarde locale (localStorage)
 - [ ] Utilisation des potions/scrolls en combat
 - [ ] Equipement d'armes/armures depuis l'inventaire
 
-### Noura — UI / Art & Son
+### Polish
 - [ ] Animations CSS sur les transitions d'ecran
-- [ ] Effets visuels de combat (shake, flash)
-- [ ] Sound design (Web Audio API) : ambiance, coups, loot
-- [ ] Ecran titre anime
-- [ ] Polish des ecrans Game Over et Victoire
-
-### Ameliorations globales
-- [ ] Collecte automatique du loot en entrant dans une salle treasure
-- [ ] Navigation salle par salle (verifier adjacence)
-- [ ] Multi-etages (la structure existe deja dans `generateDungeon()`)
-- [ ] Sauvegarde locale (localStorage)
+- [ ] Integration complete des sprites pixel art dans les ecrans React
+- [ ] Ecran titre anime (particules de Noura)
 
 ## Branches
 
 | Branche | Contenu |
 |---------|---------|
-| `main` | Base commune |
+| `main` | Base commune (Baart + Jenn) |
 | `brt` | Branche de Baart (Game Engine) |
+| `DevL0n` | Branche de Lon (Combat complet) |
+| `NOURA` | Branche de Noura (UI pixel art) |
+| `MergeTotal` | Fusion de toutes les branches |
 
 ## Scripts
 

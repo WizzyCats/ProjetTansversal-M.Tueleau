@@ -1,97 +1,65 @@
 // =============================================================================
-// CombatScreen.tsx — Lon : système de combat AFK complet
+// CombatScreen.tsx — Système de combat tour par tour
 // =============================================================================
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useGame } from '../engine/GameContext';
-import {
-  createPlayer, adaptEnemy, simulateCombat, drawLevelUpCards, applyCard,
-  RARITY_COLORS, RARITY_LABELS, CLASS_LABELS,
-} from '../combat/CombatSystem';
-import type { PlayerState, CombatEnemy, CombatLog, LevelUpOffer } from '../combat/types';
-import type { ClassName } from '../combat/types';
 import type { Player } from '../engine/gameTypes';
+import type { Enemy, LootItem } from '../levels/types';
+import { generateLoot } from '../levels/lootTables';
 import PixelCanvas, { type PixelCanvasHandle } from '../components/PixelCanvas';
 import { useSoundFX } from '../hooks/useSoundFX';
 
 // ---------------------------------------------------------------------------
-// CONSTANTES
+// TYPES
 // ---------------------------------------------------------------------------
 
-const LOG_REPLAY_MS = 80; // délai entre chaque log affiché (ms)
+interface CombatLogEntry {
+  text: string;
+  type: 'player' | 'enemy' | 'system' | 'heal' | 'loot';
+}
+
+type CombatPhase = 'player_turn' | 'enemy_turn' | 'victory' | 'defeat' | 'loot';
 
 // ---------------------------------------------------------------------------
-// HELPER : sync PlayerState → Player (pour le GameContext)
+// HELPERS
 // ---------------------------------------------------------------------------
 
-function syncToGamePlayer(ps: PlayerState, base: Player): Player {
-  return {
-    ...base,
-    hp:            Math.max(ps.stats.hp, 0),
-    maxHp:         ps.stats.hpMax,
-    attack:        ps.stats.atk,
-    defense:       ps.stats.def,
-    level:         ps.level,
-    xp:            ps.xp,
-    xpToNextLevel: ps.xpToNextLevel,
-  };
+const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const chance = (pct: number) => Math.random() * 100 < pct;
+
+function calcDamage(atk: number, def: number, critChance: number = 10): { dmg: number; crit: boolean } {
+  const crit = chance(critChance);
+  let base = atk - def;
+  if (crit) base = Math.floor(base * 1.8);
+  return { dmg: Math.max(base, 1), crit };
+}
+
+// Palier XP pour level up
+function xpForLevel(level: number): number {
+  return Math.round(100 * Math.pow(level, 1.5));
+}
+
+// Générer des drops après un combat (scrolls, potions, or)
+function generateCombatDrops(enemyTier: string, difficulty: number): LootItem[] {
+  const count = enemyTier === 'boss' ? rand(3, 5) : enemyTier === 'elite' ? rand(1, 3) : rand(0, 1);
+  if (count === 0 && Math.random() > 0.4) return []; // 40% chance de drop même sans count
+  const rngState = { val: Math.random() };
+  const rng = () => { rngState.val = (rngState.val * 16807 + 0.5) % 1; return rngState.val; };
+  return generateLoot(Math.max(count, 1), difficulty, rng);
 }
 
 // ---------------------------------------------------------------------------
 // BARRE DE PV
 // ---------------------------------------------------------------------------
 
-function HpBar({ hp, maxHp, color = 'bg-green-500' }: { hp: number; maxHp: number; color?: string }) {
-  const pct      = Math.max(0, Math.min(100, (hp / maxHp) * 100));
-  const barColor = pct > 50 ? 'bg-green-500' : pct > 25 ? 'bg-yellow-500' : 'bg-red-500';
+function HpBar({ hp, maxHp, color = 'green' }: { hp: number; maxHp: number; color?: string }) {
+  const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+  const barColor = color === 'red' ? 'bg-red-500' :
+    pct > 50 ? 'bg-green-500' : pct > 25 ? 'bg-yellow-500' : 'bg-red-500';
   return (
-    <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-      <div
-        className={`${color === 'bg-green-500' ? barColor : color} h-full transition-all duration-300`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// CARTE DE LEVEL UP
-// ---------------------------------------------------------------------------
-
-function CardChoice({ offer, onChoose }: { offer: LevelUpOffer; onChoose: (idx: 0 | 1 | 2) => void }) {
-  const [chosen, setChosen] = useState<number | null>(null);
-
-  const pick = (idx: 0 | 1 | 2) => {
-    setChosen(idx);
-    setTimeout(() => onChoose(idx), 400);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-2xl space-y-4">
-        <h3 className="font-pixel text-lg text-primary text-center">⬆️ Level Up ! Choisissez une carte</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {offer.cards.map((card, i) => (
-            <button
-              key={card.id}
-              onClick={() => pick(i as 0 | 1 | 2)}
-              disabled={chosen !== null}
-              className={`p-4 rounded-lg border-2 text-left transition-all hover:scale-[1.02]
-                ${chosen === i ? 'border-primary bg-primary/20 scale-[1.02]' : 'border-border hover:border-primary/60'}
-                ${chosen !== null && chosen !== i ? 'opacity-40' : ''}`}
-            >
-              <span
-                className="text-xs font-pixel px-2 py-0.5 rounded mb-2 inline-block"
-                style={{ backgroundColor: RARITY_COLORS[card.rarity] + '33', color: RARITY_COLORS[card.rarity] }}
-              >
-                {RARITY_LABELS[card.rarity]}
-              </span>
-              <p className="font-pixel text-sm text-foreground mt-1">{card.name}</p>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{card.description}</p>
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
+      <div className={`${barColor} h-full transition-all duration-500`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -105,327 +73,441 @@ export default function CombatScreen() {
   const { activeEnemy, player } = state;
   const sfx = useSoundFX();
   const pixelRef = useRef<PixelCanvasHandle>(null);
+  const logRef = useRef<HTMLDivElement>(null);
 
-  const [displayedLogs, setDisplayed]  = useState<CombatLog[]>([]);
-  const [playerState, setPlayerState]  = useState<PlayerState | null>(null);
-  const [enemyState, setEnemyState]    = useState<CombatEnemy | null>(null);
-  const [phase, setPhase]              = useState<'idle' | 'running' | 'levelup' | 'done'>('idle');
-  const [pendingOffers, setPending]    = useState<LevelUpOffer[]>([]);
-  const [combatResult, setResult]      = useState<{ victory: boolean; xpGained: number } | null>(null);
-  const logRef     = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // État local du combat
+  const [playerHp, setPlayerHp] = useState(0);
+  const [enemyHp, setEnemyHp] = useState(0);
+  const [enemyMaxHp, setEnemyMaxHp] = useState(0);
+  const [phase, setPhase] = useState<CombatPhase>('player_turn');
+  const [logs, setLogs] = useState<CombatLogEntry[]>([]);
+  const [turn, setTurn] = useState(1);
+  const [xpGained, setXpGained] = useState(0);
+  const [drops, setDrops] = useState<LootItem[]>([]);
+  const [busy, setBusy] = useState(false); // empêche le double-clic
 
-  // ---------------------------------------------------------------------------
-  // INIT
-  // ---------------------------------------------------------------------------
-
+  // Init combat
   useEffect(() => {
     if (!activeEnemy || !player) return;
-
-    const className = (sessionStorage.getItem('playerClassName') ?? 'barbare') as ClassName;
-    const name      = sessionStorage.getItem('playerName') ?? player.name;
-
-    const savedRaw = sessionStorage.getItem('combatPlayerState');
-    let ps: PlayerState;
-    if (savedRaw) {
-      ps = JSON.parse(savedRaw) as PlayerState;
-      ps.level         = player.level;
-      ps.xp            = player.xp;
-      ps.xpToNextLevel = player.xpToNextLevel;
-      ps.stats.hp      = player.hp;
-    } else {
-      ps = createPlayer(name, className);
-      ps.stats.hp      = player.hp;
-      ps.stats.hpMax   = player.maxHp;
-      ps.stats.atk     = player.attack;
-      ps.stats.def     = player.defense;
-      ps.level         = player.level;
-      ps.xp            = player.xp;
-      ps.xpToNextLevel = player.xpToNextLevel;
-    }
-
-    setPlayerState(ps);
-    setEnemyState(adaptEnemy(activeEnemy));
-    setDisplayed([]);
-    setResult(null);
-    setPhase('idle');
-    setPending([]);
+    setPlayerHp(player.hp);
+    setEnemyHp(activeEnemy.hp);
+    setEnemyMaxHp(activeEnemy.maxHp);
+    setPhase('player_turn');
+    setLogs([{ text: `${activeEnemy.name} apparaît !`, type: 'system' }]);
+    setTurn(1);
+    setXpGained(0);
+    setDrops([]);
+    setBusy(false);
   }, [activeEnemy?.id]);
 
-  // ---------------------------------------------------------------------------
-  // LANCER LE COMBAT
-  // ---------------------------------------------------------------------------
+  // Auto scroll logs
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [logs]);
 
-  const runCombat = useCallback(() => {
-    if (!playerState || !enemyState) return;
-    setPhase('running');
-    setDisplayed([]);
+  if (!activeEnemy || !player) return null;
 
-    const result = simulateCombat(playerState, [enemyState]);
-    setResult({ victory: result.victory, xpGained: result.xpGained });
-    sessionStorage.setItem('combatPlayerState', JSON.stringify(result.finalPlayerState));
-    setPlayerState(result.finalPlayerState);
-
-    let idx = 0;
-    sfx.playSlash(); // Son de début de combat
-    intervalRef.current = setInterval(() => {
-      idx++;
-      const entry = result.logs[idx - 1];
-      setDisplayed(prev => [...prev, entry]);
-      if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-
-      // Effets visuels et sonores par type de log (Noura)
-      if (entry && pixelRef.current) {
-        const px = pixelRef.current;
-        const action = entry.action.toLowerCase();
-        if (action.includes('frappe') || action.includes('attaque') || action.includes('toucher')) {
-          px.showDamage(entry.value ?? 0, entry.actor === playerState?.name ? 'enemy' : 'player');
-          px.addEffect('slash', 420, 180);
-          sfx.playHit();
-        } else if (action.includes('soin') || action.includes('heal') || action.includes('survie')) {
-          px.showDamage(entry.value ?? 0, 'heal', 150, 180);
-          px.addEffect('heal', 150, 180);
-          sfx.playHeal();
-        } else if (action.includes('esquive') || action.includes('miss') || action.includes('parade')) {
-          px.showDamage(0, 'miss', 340, 160);
-        } else if (action.includes('crit') || action.includes('exécution')) {
-          px.showDamage(entry.value ?? 0, 'crit', 420, 160);
-          px.addEffect('explosion', 420, 180);
-          sfx.playLightning();
-        } else if (action.includes('poison')) {
-          px.showDamage(entry.value ?? 0, 'enemy', 450, 200);
-          px.addEffect('petal', 420, 200);
-        } else if (action.includes('chaos') || action.includes('sort')) {
-          px.addEffect('lightning', 420, 160);
-          sfx.playLightning();
-        } else if (action.includes('mort') || action.includes('☠')) {
-          px.addEffect('explosion', 420, 180);
-          sfx.playDeath();
-        } else if (action.includes('victoire') || action.includes('✅')) {
-          sfx.playLevelUp();
-        } else if (action.includes('invoque') || action.includes('minion')) {
-          sfx.playSparkle();
-        }
-      }
-
-      if (idx >= result.logs.length) {
-        clearInterval(intervalRef.current!);
-        setTimeout(() => {
-          if (result.leveledUp && result.finalPlayerState) {
-            const taken = result.finalPlayerState.activeCards.map(c => c.id);
-            const offers: LevelUpOffer[] = [];
-            for (let l = playerState.level + 1; l <= result.finalPlayerState.level; l++) {
-              offers.push(drawLevelUpCards(result.finalPlayerState.className, l, taken));
-            }
-            setPending(offers);
-            setPhase('levelup');
-          } else {
-            setPhase('done');
-          }
-        }, 500);
-      }
-    }, LOG_REPLAY_MS);
-  }, [playerState, enemyState]);
-
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
-
-  // ---------------------------------------------------------------------------
-  // CHOISIR UNE CARTE
-  // ---------------------------------------------------------------------------
-
-  const handleCardChoice = (idx: 0 | 1 | 2) => {
-    if (!playerState || pendingOffers.length === 0) return;
-    sfx.playLevelUp();
-    const updated = applyCard(playerState, pendingOffers[0].cards[idx]);
-    setPlayerState(updated);
-    sessionStorage.setItem('combatPlayerState', JSON.stringify(updated));
-    const remaining = pendingOffers.slice(1);
-    setPending(remaining);
-    if (remaining.length === 0) setPhase('done');
+  const addLog = (text: string, type: CombatLogEntry['type'] = 'system') => {
+    setLogs(prev => [...prev, { text, type }]);
   };
 
-  // ---------------------------------------------------------------------------
-  // FIN DE COMBAT
-  // ---------------------------------------------------------------------------
+  // ----- ACTIONS DU JOUEUR -----
 
-  const handleEndCombat = () => {
-    if (!player || !playerState || !combatResult) return;
-    const updatedGamePlayer = syncToGamePlayer(playerState, player);
+  const doPlayerAttack = () => {
+    if (busy || phase !== 'player_turn') return;
+    setBusy(true);
 
-    if (combatResult.victory) {
-      if (activeEnemy?.tier === 'boss') {
-        dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
-      } else {
-        dispatch({ type: 'END_COMBAT_WIN', player: updatedGamePlayer });
-      }
+    const { dmg, crit } = calcDamage(player.attack, activeEnemy.defense);
+    const newEnemyHp = Math.max(enemyHp - dmg, 0);
+    setEnemyHp(newEnemyHp);
+
+    if (crit) {
+      addLog(`Coup critique ! Vous infligez ${dmg} dégâts !`, 'player');
+      pixelRef.current?.showDamage(dmg, 'crit', 420, 160);
+      pixelRef.current?.addEffect('explosion', 420, 180);
+      sfx.playLightning();
     } else {
-      dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy?.name} vous a vaincu...` });
+      addLog(`Vous attaquez et infligez ${dmg} dégâts.`, 'player');
+      pixelRef.current?.showDamage(dmg, 'enemy', 420, 180);
+      pixelRef.current?.addEffect('slash', 420, 180);
+      sfx.playHit();
+    }
+
+    if (newEnemyHp <= 0) {
+      setTimeout(() => handleVictory(), 600);
+    } else {
+      setTimeout(() => doEnemyTurn(newEnemyHp), 800);
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // RENDU
-  // ---------------------------------------------------------------------------
+  const doUsePotion = () => {
+    if (busy || phase !== 'player_turn') return;
 
-  if (!activeEnemy || !player || !playerState || !enemyState) return null;
+    const potionIndex = player.inventory.findIndex(i => i.type === 'potion');
+    if (potionIndex === -1) return;
+
+    setBusy(true);
+    const potion = player.inventory[potionIndex];
+
+    // Effet selon la potion
+    let healAmount = 20;
+    if (potion.name.includes('vie') || potion.name.includes('Élixir')) healAmount = player.maxHp;
+    else if (potion.name.includes('force')) healAmount = 0; // buff géré autrement
+
+    const newHp = Math.min(playerHp + healAmount, player.maxHp);
+    setPlayerHp(newHp);
+
+    // Retirer la potion de l'inventaire
+    const newInventory = [...player.inventory];
+    newInventory.splice(potionIndex, 1);
+    dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: newInventory } });
+
+    addLog(`Vous utilisez ${potion.name}. +${healAmount} PV !`, 'heal');
+    pixelRef.current?.showDamage(healAmount, 'heal', 150, 180);
+    pixelRef.current?.addEffect('heal', 150, 180);
+    sfx.playHeal();
+
+    setTimeout(() => doEnemyTurn(enemyHp), 800);
+  };
+
+  const doUseScroll = () => {
+    if (busy || phase !== 'player_turn') return;
+
+    const scrollIndex = player.inventory.findIndex(i => i.type === 'scroll');
+    if (scrollIndex === -1) return;
+
+    setBusy(true);
+    const scroll = player.inventory[scrollIndex];
+
+    // Dégâts du parchemin (ignore la défense)
+    let scrollDmg = rand(20, 40);
+    if (scroll.name.includes('feu')) scrollDmg = rand(25, 45);
+    else if (scroll.name.includes('gel')) scrollDmg = rand(20, 35);
+    else if (scroll.name.includes('téléportation')) {
+      // Fuir le combat
+      addLog(`Vous utilisez ${scroll.name} et vous téléportez !`, 'system');
+      const newInventory = [...player.inventory];
+      newInventory.splice(scrollIndex, 1);
+      dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: newInventory, hp: playerHp } });
+      dispatch({ type: 'END_COMBAT_WIN', player: { ...player, inventory: newInventory, hp: playerHp } });
+      return;
+    }
+
+    const newEnemyHp = Math.max(enemyHp - scrollDmg, 0);
+    setEnemyHp(newEnemyHp);
+
+    // Retirer le scroll
+    const newInventory = [...player.inventory];
+    newInventory.splice(scrollIndex, 1);
+    dispatch({ type: 'SET_PLAYER', player: { ...player, inventory: newInventory } });
+
+    addLog(`${scroll.name} inflige ${scrollDmg} dégâts magiques !`, 'player');
+    pixelRef.current?.showDamage(scrollDmg, 'crit', 420, 160);
+    pixelRef.current?.addEffect('lightning', 420, 160);
+    sfx.playLightning();
+
+    if (newEnemyHp <= 0) {
+      setTimeout(() => handleVictory(), 600);
+    } else {
+      setTimeout(() => doEnemyTurn(newEnemyHp), 800);
+    }
+  };
+
+  const doFlee = () => {
+    if (busy || phase !== 'player_turn') return;
+    setBusy(true);
+
+    // 50% de chance de fuir (impossible contre un boss)
+    if (activeEnemy.tier === 'boss') {
+      addLog('Impossible de fuir face au boss !', 'system');
+      setBusy(false);
+      return;
+    }
+
+    if (chance(50)) {
+      addLog('Vous prenez la fuite !', 'system');
+      sfx.playMenu();
+      setTimeout(() => {
+        dispatch({ type: 'END_COMBAT_WIN', player: { ...player, hp: playerHp } });
+      }, 500);
+    } else {
+      addLog('La fuite échoue !', 'system');
+      setTimeout(() => doEnemyTurn(enemyHp), 800);
+    }
+  };
+
+  // ----- TOUR ENNEMI -----
+
+  const doEnemyTurn = (currentEnemyHp: number) => {
+    if (currentEnemyHp <= 0) {
+      handleVictory();
+      return;
+    }
+
+    setPhase('enemy_turn');
+
+    // Esquive du joueur (basée sur la classe)
+    const dodgeChance = 8;
+    if (chance(dodgeChance)) {
+      addLog(`${activeEnemy.name} attaque mais vous esquivez !`, 'system');
+      pixelRef.current?.showDamage(0, 'miss', 150, 160);
+      sfx.playMenu();
+      setTimeout(() => {
+        setTurn(t => t + 1);
+        setPhase('player_turn');
+        setBusy(false);
+      }, 600);
+      return;
+    }
+
+    const { dmg, crit } = calcDamage(activeEnemy.attack, player.defense, 5);
+    const newPlayerHp = Math.max(playerHp - dmg, 0);
+    setPlayerHp(newPlayerHp);
+
+    if (crit) {
+      addLog(`${activeEnemy.name} porte un coup critique ! ${dmg} dégâts !`, 'enemy');
+      pixelRef.current?.showDamage(dmg, 'crit', 150, 160);
+      pixelRef.current?.addEffect('explosion', 150, 180);
+    } else {
+      addLog(`${activeEnemy.name} attaque et inflige ${dmg} dégâts.`, 'enemy');
+      pixelRef.current?.showDamage(dmg, 'player', 150, 180);
+      pixelRef.current?.addEffect('slash', 150, 180);
+    }
+    sfx.playHit();
+
+    if (newPlayerHp <= 0) {
+      setTimeout(() => {
+        setPhase('defeat');
+        sfx.playDeath();
+        addLog('Vous avez été vaincu...', 'system');
+      }, 600);
+    } else {
+      setTimeout(() => {
+        setTurn(t => t + 1);
+        setPhase('player_turn');
+        setBusy(false);
+      }, 600);
+    }
+  };
+
+  // ----- VICTOIRE -----
+
+  const handleVictory = () => {
+    const xp = activeEnemy.xpReward;
+    const goldDrop = rand(5, 15 + activeEnemy.xpReward);
+    const combatDrops = generateCombatDrops(activeEnemy.tier, 3);
+    setXpGained(xp);
+    setDrops(combatDrops);
+    setPhase('loot');
+    sfx.playLevelUp();
+
+    addLog(`${activeEnemy.name} est vaincu !`, 'system');
+    addLog(`+${xp} XP, +${goldDrop} or`, 'loot');
+    if (combatDrops.length > 0) {
+      combatDrops.forEach(d => addLog(`Trouvé : ${d.icon} ${d.name}`, 'loot'));
+    }
+
+    pixelRef.current?.addEffect('explosion', 420, 180);
+
+    // Calcul du level up
+    let newXp = player.xp + xp;
+    let newLevel = player.level;
+    let newMaxHp = player.maxHp;
+    let newAtk = player.attack;
+    let newDef = player.defense;
+    let xpNeeded = player.xpToNextLevel;
+
+    while (newXp >= xpNeeded && newLevel < 20) {
+      newXp -= xpNeeded;
+      newLevel++;
+      newMaxHp += 8;
+      newAtk += 2;
+      newDef += 1;
+      xpNeeded = xpForLevel(newLevel + 1);
+      addLog(`LEVEL UP ! Niveau ${newLevel} !`, 'system');
+      sfx.playLevelUp();
+    }
+
+    // Mettre à jour le joueur
+    const updatedPlayer: Player = {
+      ...player,
+      hp: Math.min(playerHp, newMaxHp),
+      maxHp: newMaxHp,
+      attack: newAtk,
+      defense: newDef,
+      level: newLevel,
+      xp: newXp,
+      xpToNextLevel: xpNeeded,
+      gold: player.gold + goldDrop,
+      inventory: [...player.inventory, ...combatDrops],
+    };
+
+    // On stocke pour le bouton "Continuer"
+    setPlayerHp(updatedPlayer.hp);
+    dispatch({ type: 'SET_PLAYER', player: updatedPlayer });
+  };
+
+  // ----- FIN DE COMBAT -----
+
+  const handleEndCombat = () => {
+    const updatedPlayer = { ...player, hp: playerHp };
+
+    if (phase === 'victory' || phase === 'loot') {
+      if (activeEnemy.tier === 'boss') {
+        dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
+      } else {
+        dispatch({ type: 'END_COMBAT_WIN', player: updatedPlayer });
+      }
+    } else {
+      dispatch({ type: 'END_COMBAT_LOSE', message: `${activeEnemy.name} vous a vaincu...` });
+    }
+  };
+
+  // ----- RENDU -----
+
+  const potionCount = player.inventory.filter(i => i.type === 'potion').length;
+  const scrollCount = player.inventory.filter(i => i.type === 'scroll').length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-4 gap-4 max-w-2xl mx-auto relative">
 
-      {/* Canvas pixel art overlay (Noura) — damage numbers + effets visuels */}
-      <PixelCanvas ref={pixelRef} active={phase === 'running'} />
-
-      {/* Level Up overlay */}
-      {phase === 'levelup' && pendingOffers.length > 0 && (
-        <CardChoice offer={pendingOffers[0]} onChoose={handleCardChoice} />
-      )}
+      {/* Canvas overlay pour les effets visuels */}
+      <PixelCanvas ref={pixelRef} active={phase === 'player_turn' || phase === 'enemy_turn'} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-pixel text-lg text-destructive">⚔️ Combat !</h2>
-        <span className="text-xs text-muted-foreground font-pixel">
-          {CLASS_LABELS[playerState.className]}
-        </span>
+        <h2 className="font-pixel text-lg text-destructive">Combat !</h2>
+        <span className="text-xs text-muted-foreground font-pixel">Tour {turn}</span>
       </div>
 
       {/* Combattants */}
       <div className="grid grid-cols-2 gap-4">
 
         {/* Joueur */}
-        <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+        <div className={`bg-card border rounded-lg p-4 space-y-2 transition-all ${
+          phase === 'player_turn' ? 'border-primary' : 'border-border'
+        }`}>
           <div className="flex justify-between items-center">
-            <p className="font-pixel text-xs text-primary truncate">{playerState.name}</p>
-            <span className="text-xs text-muted-foreground">Nv.{playerState.level}</span>
+            <p className="font-pixel text-xs text-primary truncate">{player.name}</p>
+            <span className="text-xs text-muted-foreground">Nv.{player.level}</span>
           </div>
-          <HpBar hp={playerState.stats.hp} maxHp={playerState.stats.hpMax} />
+          <HpBar hp={playerHp} maxHp={player.maxHp} />
           <p className="text-xs text-muted-foreground">
-            ❤️ {Math.max(playerState.stats.hp, 0)} / {playerState.stats.hpMax}
+            {Math.max(playerHp, 0)} / {player.maxHp} PV
           </p>
           <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-            <span>⚔️ {playerState.stats.atk}</span>
-            <span>🛡️ {playerState.stats.def}</span>
-            <span>💨 {playerState.stats.dodge}%</span>
-            <span>⏱️ {playerState.stats.cooldown.toFixed(1)}s</span>
+            <span>ATK {player.attack}</span>
+            <span>DEF {player.defense}</span>
           </div>
-          {playerState.activeCards.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {playerState.activeCards.slice(-4).map(c => (
-                <span key={c.id} className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: RARITY_COLORS[c.rarity] + '22', color: RARITY_COLORS[c.rarity] }}>
-                  {c.name}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Barre XP */}
           <div className="w-full bg-secondary rounded-full h-1 overflow-hidden">
             <div className="bg-yellow-500 h-full transition-all"
-              style={{ width: `${playerState.xpToNextLevel > 0 ? (playerState.xp / playerState.xpToNextLevel) * 100 : 100}%` }} />
+              style={{ width: `${player.xpToNextLevel > 0 ? (player.xp / player.xpToNextLevel) * 100 : 100}%` }} />
           </div>
-          <p className="text-xs text-muted-foreground">{playerState.xp} / {playerState.xpToNextLevel} XP</p>
+          <p className="text-xs text-muted-foreground">{player.xp} / {player.xpToNextLevel} XP</p>
         </div>
 
         {/* Ennemi */}
-        <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+        <div className={`bg-card border rounded-lg p-4 space-y-2 transition-all ${
+          phase === 'enemy_turn' ? 'border-destructive' : 'border-border'
+        }`}>
           <div className="flex justify-between items-center">
-            <p className="font-pixel text-xs text-destructive truncate">{enemyState.name}</p>
+            <p className="font-pixel text-xs text-destructive truncate">{activeEnemy.name}</p>
             {activeEnemy.tier === 'boss' && <span className="text-xs text-destructive font-pixel">BOSS</span>}
           </div>
-          <p className="text-3xl text-center">{enemyState.icon}</p>
-          <HpBar hp={enemyState.currentHp} maxHp={enemyState.hpMax} color="bg-red-500" />
+          <p className="text-3xl text-center">{activeEnemy.icon}</p>
+          <HpBar hp={enemyHp} maxHp={enemyMaxHp} color="red" />
           <p className="text-xs text-muted-foreground">
-            ❤️ {Math.max(enemyState.currentHp, 0)} / {enemyState.hpMax}
+            {Math.max(enemyHp, 0)} / {enemyMaxHp} PV
           </p>
           <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-            <span>⚔️ {enemyState.atk}</span>
-            <span>🛡️ {enemyState.def}</span>
+            <span>ATK {activeEnemy.attack}</span>
+            <span>DEF {activeEnemy.defense}</span>
           </div>
-          {enemyState.statusEffects.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {enemyState.statusEffects.map((eff, i) => (
-                <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
-                  {eff.type} ×{eff.stacks}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Minions (Nécromancien) */}
-      {playerState.minions.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {playerState.minions.map(m => (
-            <div key={m.id} className="bg-card border border-border rounded px-3 py-2 text-xs space-y-1">
-              <span className="font-pixel text-muted-foreground">💀 {m.name}</span>
-              <HpBar hp={m.hp} maxHp={m.hpMax} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Logs de combat */}
+      {/* Log de combat */}
       <div
         ref={logRef}
-        className="flex-1 bg-card border border-border rounded-lg p-3 overflow-y-auto font-mono text-xs space-y-0.5 min-h-40 max-h-64"
+        className="flex-1 bg-card border border-border rounded-lg p-3 overflow-y-auto font-mono text-xs space-y-0.5 min-h-32 max-h-48"
       >
-        {displayedLogs.length === 0 && phase === 'idle' && (
-          <p className="text-muted-foreground italic text-center mt-8">
-            Appuyez sur "Lancer le combat" pour commencer...
-          </p>
-        )}
-        {displayedLogs.map((entry, i) => {
-          const isPlayer = entry.actor === playerState.name;
-          const isSystem = entry.actor === 'Système';
-          return (
-            <div key={i} className={
-              isSystem                    ? 'text-yellow-400 font-bold' :
-              isPlayer                    ? 'text-blue-400' :
-              entry.actor === 'Poison'    ? 'text-purple-400' :
-                                            'text-red-400'
-            }>
-              <span className="text-muted-foreground mr-1">[{(entry.tick / 1000).toFixed(1)}s]</span>
-              <span className="font-bold">{entry.actor}</span>
-              {' '}{entry.action}
-              {entry.value !== undefined && <span className="text-yellow-300"> ({entry.value})</span>}
-              {entry.detail && <span className="text-muted-foreground"> — {entry.detail}</span>}
-            </div>
-          );
-        })}
-        {phase === 'running' && (
-          <div className="text-muted-foreground animate-pulse">⚡ Combat en cours...</div>
-        )}
+        {logs.map((entry, i) => (
+          <div key={i} className={
+            entry.type === 'player'  ? 'text-blue-400' :
+            entry.type === 'enemy'   ? 'text-red-400' :
+            entry.type === 'heal'    ? 'text-green-400' :
+            entry.type === 'loot'    ? 'text-yellow-400' :
+                                       'text-muted-foreground'
+          }>
+            {entry.text}
+          </div>
+        ))}
       </div>
 
-      {/* Résultat */}
-      {combatResult && phase === 'done' && (
-        <div className={`p-4 rounded-lg border text-center font-pixel text-sm ${
-          combatResult.victory
-            ? 'border-green-500 bg-green-500/10 text-green-400'
-            : 'border-destructive bg-destructive/10 text-destructive'
-        }`}>
-          {combatResult.victory ? '✅ VICTOIRE !' : '💀 DÉFAITE'}
-          {combatResult.victory && combatResult.xpGained > 0 && (
-            <span className="text-yellow-400 ml-2">+{combatResult.xpGained} XP</span>
-          )}
+      {/* Drops après victoire */}
+      {phase === 'loot' && drops.length > 0 && (
+        <div className="bg-card border border-yellow-500/30 rounded-lg p-3 space-y-2">
+          <p className="font-pixel text-xs text-yellow-400">Butin obtenu :</p>
+          <div className="flex flex-wrap gap-2">
+            {drops.map((item, i) => (
+              <span key={i} className="text-xs px-2 py-1 rounded bg-secondary text-foreground">
+                {item.icon} {item.name}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Boutons */}
-      <div className="flex gap-3">
-        {phase === 'idle' && (
-          <button onClick={runCombat}
-            className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-md font-pixel text-xs hover:opacity-90 transition-all">
-            ⚔️ Lancer le combat
-          </button>
+      {/* Résultat */}
+      {(phase === 'loot') && (
+        <div className="p-3 rounded-lg border border-green-500 bg-green-500/10 text-center font-pixel text-sm text-green-400">
+          VICTOIRE ! +{xpGained} XP
+        </div>
+      )}
+      {phase === 'defeat' && (
+        <div className="p-3 rounded-lg border border-destructive bg-destructive/10 text-center font-pixel text-sm text-destructive">
+          DEFAITE
+        </div>
+      )}
+
+      {/* Actions du joueur */}
+      <div className="flex gap-2 flex-wrap">
+        {phase === 'player_turn' && (
+          <>
+            <button onClick={doPlayerAttack} disabled={busy}
+              className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-md font-pixel text-xs hover:opacity-90 transition-all disabled:opacity-40">
+              Attaquer
+            </button>
+            <button onClick={doUseScroll} disabled={busy || scrollCount === 0}
+              className="px-4 py-3 bg-purple-600 text-white rounded-md font-pixel text-xs hover:opacity-90 transition-all disabled:opacity-30"
+              title={scrollCount > 0 ? `${scrollCount} parchemin(s)` : 'Aucun parchemin'}>
+              Capacite ({scrollCount})
+            </button>
+            <button onClick={doUsePotion} disabled={busy || potionCount === 0}
+              className="px-4 py-3 bg-green-600 text-white rounded-md font-pixel text-xs hover:opacity-90 transition-all disabled:opacity-30"
+              title={potionCount > 0 ? `${potionCount} potion(s)` : 'Aucune potion'}>
+              Potion ({potionCount})
+            </button>
+            <button onClick={doFlee} disabled={busy}
+              className="px-4 py-3 bg-secondary text-secondary-foreground rounded-md font-pixel text-xs hover:opacity-80 transition-all disabled:opacity-40">
+              Fuir
+            </button>
+          </>
         )}
-        {phase === 'done' && (
+        {phase === 'enemy_turn' && (
+          <div className="flex-1 text-center py-3 font-pixel text-xs text-muted-foreground animate-pulse">
+            Tour de l'ennemi...
+          </div>
+        )}
+        {(phase === 'loot' || phase === 'defeat') && (
           <button onClick={handleEndCombat}
             className={`flex-1 px-6 py-3 rounded-md font-pixel text-xs transition-all ${
-              combatResult?.victory
+              phase === 'loot'
                 ? 'bg-green-600 text-white hover:bg-green-700'
                 : 'bg-destructive text-destructive-foreground hover:opacity-90'
             }`}>
-            {combatResult?.victory ? "🏆 Continuer l'exploration" : '💀 Retour au menu'}
+            {phase === 'loot' ? "Continuer" : 'Retour au menu'}
           </button>
         )}
       </div>

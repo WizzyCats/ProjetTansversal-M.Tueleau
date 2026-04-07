@@ -1,7 +1,6 @@
 // ============================================================
-// GameScreen.tsx — BAART
+// GameScreen.tsx
 // Écran principal : carte du donjon + HUD joueur.
-// Intègre DungeonMap (Jenn) et le HUD (Lon/Noura).
 // ============================================================
 
 import { useCallback } from 'react';
@@ -16,26 +15,51 @@ export default function GameScreen() {
   const { player, floor, currentRoomId } = state;
   const sfx = useSoundFX();
 
-  // Quand le joueur clique sur une salle
   const handleRoomClick = useCallback((room: Room) => {
-    if (!floor) return;
+    if (!floor || !currentRoomId) return;
 
-    // Révéler la salle
+    // Vérifier que la salle est adjacente (connectée par une porte)
+    const currentRoom = floor.rooms.find(r => r.id === currentRoomId);
+    if (!currentRoom) return;
+
+    // La salle cliquée est-elle la salle courante ?
+    if (room.id === currentRoomId) {
+      // On peut re-sélectionner la salle courante pour voir ses détails
+      return;
+    }
+
+    // Vérifier l'adjacence via les portes
+    const hasPath = currentRoom.doors.some(d => d.targetRoomId === room.id);
+    if (!hasPath) return; // Pas de porte vers cette salle → bloqué
+
+    // Révéler la salle et y entrer
     room.explored = true;
     dispatch({ type: 'ENTER_ROOM', room });
+    dispatch({ type: 'NEXT_TURN' });
 
-    // Son contextuel selon le type de salle
+    // Son contextuel
     if (room.type === 'treasure') sfx.playLoot();
     else if (room.type === 'trap') sfx.playHit();
     else if (room.type === 'boss') sfx.playDeath();
     else sfx.playMenu();
+
+    // Collecte auto du loot dans les salles trésor
+    if (room.type === 'treasure' && room.loot.length > 0 && player) {
+      const updatedPlayer = {
+        ...player,
+        inventory: [...player.inventory, ...room.loot.filter(l => l.type !== 'gold')],
+        gold: player.gold + room.loot.filter(l => l.type === 'gold').reduce((s, l) => s + l.value, 0),
+      };
+      room.loot = [];
+      dispatch({ type: 'SET_PLAYER', player: updatedPlayer });
+    }
 
     // S'il y a des ennemis non vaincus → combat
     const activeEnemies = room.enemies.filter(e => e.hp > 0);
     if (activeEnemies.length > 0 && !room.cleared) {
       dispatch({ type: 'ENTER_COMBAT', enemy: activeEnemies[0] });
     }
-  }, [floor, dispatch, sfx]);
+  }, [floor, currentRoomId, dispatch, sfx, player]);
 
   const selectedRoom = floor?.rooms.find(r => r.id === currentRoomId) ?? null;
 
@@ -44,40 +68,42 @@ export default function GameScreen() {
   return (
     <div className="min-h-screen bg-background p-4 space-y-4">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="flex items-center justify-between">
-        <h1 className="font-pixel text-lg text-primary">⚔️ CrawlVenture</h1>
+        <h1 className="font-pixel text-lg text-primary">CrawlVenture</h1>
         <span className="text-xs text-muted-foreground font-pixel">Tour {state.turn}</span>
       </header>
 
-      {/* ── HUD Joueur — Lon : remplace ce bloc par ton composant ── */}
+      {/* HUD Joueur */}
       <div className="flex gap-3 flex-wrap">
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
-          ❤️ {player.hp} / {player.maxHp}
+          {player.hp} / {player.maxHp} PV
         </div>
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
-          ⚔️ ATK {player.attack}
+          ATK {player.attack}
         </div>
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
-          🛡️ DEF {player.defense}
+          DEF {player.defense}
         </div>
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
-          ✨ Niv.{player.level}
+          Niv.{player.level}
         </div>
         <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
-          💰 {player.gold} or
+          {player.gold} or
+        </div>
+        <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
+          XP {player.xp}/{player.xpToNextLevel}
         </div>
 
-        {/* Bouton inventaire — Lon : tu peux le déplacer dans ton HUD */}
         <button
           onClick={() => dispatch({ type: 'OPEN_INVENTORY' })}
           className="ml-auto bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-xs font-pixel hover:opacity-80"
         >
-          🎒 Inventaire ({player.inventory.length})
+          Inventaire ({player.inventory.length})
         </button>
       </div>
 
-      {/* ── Carte + Détail salle ── */}
+      {/* Carte + Détail salle */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <DungeonMap

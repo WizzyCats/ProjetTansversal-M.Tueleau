@@ -59,6 +59,11 @@ export default function GameScreen() {
     const activeEnemies = room.enemies.filter(e => e.hp > 0);
     if (activeEnemies.length > 0 && !room.cleared) {
       dispatch({ type: 'ENTER_COMBAT', enemy: activeEnemies[0] });
+    } else if (room.cleared && room.type !== 'start' && room.type !== 'treasure' && room.enemies.length > 0) {
+      // Salle déjà cleared → respawn ennemis affaiblis pour farmer
+      room.enemies.forEach(e => { e.hp = Math.round(e.maxHp * 0.6); });
+      room.cleared = false;
+      dispatch({ type: 'ENTER_COMBAT', enemy: room.enemies[0] });
     }
   }, [floor, currentRoomId, dispatch, sfx, player]);
 

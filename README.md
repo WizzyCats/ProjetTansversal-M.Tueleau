@@ -297,10 +297,10 @@ Permet de **farmer de l'XP** sur une salle deja cleared :
 - [x] Equilibrage difficulte / economie (XP, ennemis, scaling)
 - [x] Multi-mobs par salle (enchainement automatique)
 - [x] Regen mana/stamina qui scale avec les points investis
+- [x] Sauvegarde auto locale (localStorage) + bouton Continuer
 
 ## Ce qui reste a faire
 
-- [ ] Sauvegarde locale (localStorage)
 - [ ] Animations CSS sur les transitions d'ecran
 
 ## Branches

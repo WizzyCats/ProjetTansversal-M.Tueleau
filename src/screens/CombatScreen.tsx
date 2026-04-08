@@ -354,6 +354,7 @@ export default function CombatScreen() {
     // XP avec bonus %
     // Marquer l'ennemi comme mort dans la salle
     activeEnemy.hp = 0;
+    const scoreGain = activeEnemy.tier === 'boss' ? 50 : 10;
     const rawXp = activeEnemy.xpReward;
     const xp = Math.round(rawXp * (1 + player.xpBonus / 100));
     const goldDrop = rand(5, 15 + rawXp);
@@ -381,6 +382,7 @@ export default function CombatScreen() {
       gold: player.gold + goldDrop, resource,
       inventory: [...player.inventory, ...combatDrops],
       statPoints: player.statPoints + lvGained * 5,
+      score: player.score + scoreGain,
     }});
 
     if (isAutoRun && !scroll) {

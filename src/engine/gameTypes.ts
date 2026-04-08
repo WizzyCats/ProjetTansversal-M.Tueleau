@@ -15,6 +15,7 @@ export type GameScreen =
   | 'inventory'
   | 'levelup'
   | 'dungeonselect'
+  | 'leaderboard'
   | 'gameover'
   | 'win';
 
@@ -42,6 +43,7 @@ export interface Player {
   equipment: Equipment;
   statPoints: number;       // points à répartir
   xpBonus: number;          // bonus %XP (ex: 10 = +10%)
+  score: number;            // points de classement
 }
 
 // ── État global du jeu ──────────────────────────────────────
@@ -57,6 +59,7 @@ export interface GameState {
   winMessage: string;
   currentDungeon: number;   // 1 à 10
   maxDungeonUnlocked: number; // plus haut donjon débloqué
+  championFight: import('../engine/leaderboard').ChampionSave | null;
 }
 
 // ── Actions du reducer ──────────────────────────────────────
@@ -79,7 +82,10 @@ export type GameAction =
   | { type: 'GAME_OVER'; message: string }
   | { type: 'WIN'; message: string }
   | { type: 'RESET' }
-  | { type: 'LOAD_SAVE'; savedState: GameState };
+  | { type: 'LOAD_SAVE'; savedState: GameState }
+  | { type: 'OPEN_LEADERBOARD' }
+  | { type: 'CLOSE_LEADERBOARD' }
+  | { type: 'START_CHAMPION_FIGHT'; champion: import('../engine/leaderboard').ChampionSave };
 
 // ── Joueur par défaut (nouvelle partie) ─────────────────────
 export const DEFAULT_PLAYER: Player = {
@@ -102,4 +108,5 @@ export const DEFAULT_PLAYER: Player = {
   equipment: { weapon: null, helmet: null, chest: null, accessory: null },
   statPoints: 0,
   xpBonus: 0,
+  score: 0,
 };

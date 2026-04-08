@@ -106,6 +106,10 @@ export default function GameScreen() {
           XP {player.xp}/{player.xpToNextLevel}
         </div>
 
+        <div className="bg-card border border-border rounded-md px-3 py-2 text-xs font-pixel">
+          {player.score} pts
+        </div>
+
         {player.statPoints > 0 && (
           <button
             onClick={() => dispatch({ type: 'OPEN_LEVELUP' })}
@@ -114,6 +118,13 @@ export default function GameScreen() {
             +{player.statPoints} pts
           </button>
         )}
+
+        <button
+          onClick={() => dispatch({ type: 'OPEN_LEADERBOARD' })}
+          className="bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-xs font-pixel hover:opacity-80"
+        >
+          Classement
+        </button>
 
         <button
           onClick={() => dispatch({ type: 'OPEN_INVENTORY' })}

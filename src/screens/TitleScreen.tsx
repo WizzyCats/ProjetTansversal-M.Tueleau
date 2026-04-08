@@ -24,7 +24,7 @@ const CLASS_META: Record<ClassName, { hp: string; spd: string; style: string }> 
 };
 
 export default function TitleScreen() {
-  const { startGame, loadSave, hasSaveData } = useGame();
+  const { startGame, loadSave, hasSaveData, dispatch } = useGame();
   const sfx = useSoundFX();
   const [selected, setSelected]   = useState<ClassName | null>(null);
   const [playerName, setPlayerName] = useState('');
@@ -54,9 +54,12 @@ export default function TitleScreen() {
         className="px-8 py-4 rounded-md bg-primary text-primary-foreground font-pixel text-sm hover:opacity-90 transition-all hover:scale-105 active:scale-95">
         Nouvelle partie
       </button>
-      <div className="text-xs text-muted-foreground text-center space-y-1 mt-4">
-        <p>4 classes uniques · 20 niveaux · Cartes de progression</p>
-        <p>Combat AFK — regardez votre héros se battre !</p>
+      <button onClick={() => dispatch({ type: 'OPEN_LEADERBOARD' })}
+        className="px-6 py-2 rounded-md bg-secondary text-secondary-foreground font-pixel text-xs hover:opacity-80">
+        Classement
+      </button>
+      <div className="text-xs text-muted-foreground text-center space-y-1 mt-2">
+        <p>4 classes · 10 donjons · Combat des Champions</p>
       </div>
     </div>
   );

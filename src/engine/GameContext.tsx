@@ -25,6 +25,7 @@ const initialState: GameState = {
   winMessage: '',
   currentDungeon: 1,
   maxDungeonUnlocked: 1,
+  championFight: null,
 };
 
 // ── Reducer — machine à états ────────────────────────────────
@@ -85,11 +86,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'BOSS_DEFEATED': {
       const nextDungeon = state.currentDungeon + 1;
       const newMax = Math.max(state.maxDungeonUnlocked, Math.min(nextDungeon, 10));
+      const updatedPlayer = state.player ? { ...state.player, score: state.player.score + 100 } : state.player;
       return {
         ...state,
         screen: 'win',
         previousScreen: 'combat',
         activeEnemy: null,
+        player: updatedPlayer,
         winMessage: nextDungeon <= 10
           ? `Vous avez vaincu ${action.bossName} ! Donjon ${nextDungeon} debloque !`
           : `Vous avez vaincu ${action.bossName} et conquis tous les donjons !`,
@@ -140,6 +143,36 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'LOAD_SAVE':
       return { ...action.savedState };
+
+    case 'OPEN_LEADERBOARD':
+      return { ...state, screen: 'leaderboard', previousScreen: state.screen };
+
+    case 'CLOSE_LEADERBOARD':
+      return { ...state, screen: state.previousScreen ?? 'game', previousScreen: null };
+
+    case 'START_CHAMPION_FIGHT': {
+      // Créer un ennemi à partir du champion
+      const c = action.champion;
+      const champEnemy = {
+        id: `champ_${Date.now()}`,
+        name: `${c.name} (Champion)`,
+        tier: 'boss' as const,
+        hp: c.maxHp,
+        maxHp: c.maxHp,
+        attack: c.attack,
+        defense: c.defense,
+        xpReward: 0,
+        lootTable: [],
+        icon: '👑',
+      };
+      return {
+        ...state,
+        screen: 'combat',
+        previousScreen: 'leaderboard',
+        activeEnemy: champEnemy,
+        championFight: action.champion,
+      };
+    }
 
     default:
       return state;

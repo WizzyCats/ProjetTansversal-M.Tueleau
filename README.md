@@ -38,17 +38,20 @@ Ouvrir **http://localhost:8080**
 ```
 src/
 ├── engine/                  # BAART — Moteur du jeu
-│   ├── GameContext.tsx       #   Machine a etats (useReducer) + Context React
-│   └── gameTypes.ts          #   Types : Player, Equipment, GameState, GameAction
+│   ├── GameContext.tsx       #   Machine a etats (useReducer) + Context React + sauvegarde auto
+│   ├── gameTypes.ts          #   Types : Player, Equipment, GameState, GameAction
+│   └── leaderboard.ts       #   Leaderboard hardcode + champions + localStorage
 │
 ├── screens/                 # Ecrans du jeu
-│   ├── TitleScreen.tsx       #   Ecran titre + selection de classe + nom (Lon)
+│   ├── TitleScreen.tsx       #   Ecran titre + continuer + selection classe (Lon)
 │   ├── GameScreen.tsx        #   Carte du donjon + HUD + navigation adjacente (Baart)
 │   ├── CombatScreen.tsx      #   Combat tour par tour style Pokemon (Lon + Baart)
 │   ├── InventoryScreen.tsx   #   Fiche personnage + equipement + inventaire (Baart)
 │   ├── LevelUpScreen.tsx     #   Repartition de points de competence (Baart)
-│   ├── GameOverScreen.tsx    #   Ecran defaite (Baart)
-│   └── WinScreen.tsx         #   Ecran victoire (Baart)
+│   ├── DungeonSelectScreen.tsx #  Selection de donjon 1-10 (Baart)
+│   ├── LeaderboardScreen.tsx #   Classement top 10 + combat des champions (Baart)
+│   ├── GameOverScreen.tsx    #   Ecran defaite + envoi score (Baart)
+│   └── WinScreen.tsx         #   Ecran victoire + envoi score + sauvegarde champion (Baart)
 │
 ├── combat/                  # LON — Systeme de combat
 │   ├── types.ts              #   Types : PlayerState, CombatEnemy, Card, StatusEffect
@@ -99,11 +102,15 @@ const { state, dispatch } = useGame();
 
 **Etats (screens) :**
 ```
-title → (choix classe) → (choix nom) → game → combat → game (victoire)
-                                          ↓       ↓         ↓
-                                      inventory  levelup   gameover
-                                                   ↓
-                                                  win (boss vaincu)
+title → (continuer / nouvelle partie)
+          ↓
+       (choix classe) → (choix nom) → dungeonselect → game → combat → game
+                                           ↑            ↓       ↓        ↓
+                                      leaderboard   inventory levelup  gameover
+                                           ↑                              ↓
+                                          win ← (boss vaincu) ← combat  envoi score
+                                           ↓
+                                    donjon suivant / sauvegarde champion
 ```
 
 **Actions disponibles :**
@@ -119,8 +126,13 @@ title → (choix classe) → (choix nom) → game → combat → game (victoire)
 | `BOSS_DEFEATED` | Ecran victoire |
 | `OPEN_INVENTORY` / `CLOSE_INVENTORY` | Fiche personnage + sac |
 | `OPEN_LEVELUP` / `CLOSE_LEVELUP` | Repartition de points |
+| `SELECT_DUNGEON` | Genere un nouveau donjon et entre dedans |
+| `OPEN_DUNGEON_SELECT` | Ecran selection de donjon |
+| `OPEN_LEADERBOARD` / `CLOSE_LEADERBOARD` | Classement |
+| `START_CHAMPION_FIGHT` | Lance un combat contre un champion sauvegarde |
+| `LOAD_SAVE` | Charge une sauvegarde localStorage |
 | `NEXT_TURN` | Incremente le compteur de tours |
-| `RESET` | Retour au titre |
+| `RESET` | Efface la sauvegarde, retour au titre |
 
 ### Systeme de combat (Lon)
 
@@ -221,6 +233,39 @@ Permet de **farmer de l'XP** sur une salle deja cleared :
 - **Bouton Mute** pour couper les sons pendant le farm
 - Loot reduit a 1%, aucun parchemin
 
+### 10 Donjons
+
+| Donjon | Nom | Difficulte | Salles |
+|--------|-----|-----------|--------|
+| 1 | Caverne des Rats | 1.0 | 7-12 |
+| 2 | Crypte Oubliee | 2.5 | 8-14 |
+| 3 | Mine Maudite | 4.0 | 9-16 |
+| 4 | Temple Sombre | 5.5 | 10-18 |
+| 5 | Forteresse d'Os | 7.0 | 11-20 |
+| 6 | Abime Pourpre | 8.5 | 12-22 |
+| 7 | Tour du Necromant | 10.0 | 13-24 |
+| 8 | Gouffre Infernal | 11.5 | 14-26 |
+| 9 | Citadelle du Chaos | 13.0 | 15-28 |
+| 10 | Throne du Demon | 14.5 | 16-30 |
+
+Chaque donjon se debloque en battant le boss du precedent. Les donjons precedents restent accessibles pour farm.
+
+### Leaderboard & Combat des Champions
+
+**Score :** 10 pts/mob, 50 pts/boss, 100 pts/donjon complete.
+
+**Leaderboard :**
+- Top 10 hardcode dans le code (partage via le repo, visible sur toutes les machines)
+- Scores locaux (localStorage) se mergent avec les scores hardcodes
+- Accessible depuis : titre, HUD, victoire, game over
+- Affiche la position du joueur meme hors du top 10
+
+**Champions :**
+- 4 champions hardcodes (Baart, Lon, Noura, Jenn) defiables par tous les joueurs
+- Quand un joueur finit les 10 donjons → peut sauvegarder son heros comme champion
+- N'importe quel joueur peut defier un champion → combat PvP contre les stats du champion
+- Pour ajouter un champion permanent : ajouter une entree dans `HARDCODED_CHAMPIONS` et commit
+
 ### Navigation du donjon (Baart + Jenn)
 
 - **Adjacence obligatoire** — on ne peut se deplacer que vers les salles connectees par une porte
@@ -298,6 +343,10 @@ Permet de **farmer de l'XP** sur une salle deja cleared :
 - [x] Multi-mobs par salle (enchainement automatique)
 - [x] Regen mana/stamina qui scale avec les points investis
 - [x] Sauvegarde auto locale (localStorage) + bouton Continuer
+- [x] Leaderboard hardcode (top 10 partage via le repo)
+- [x] 4 champions hardcodes defiables par tous les joueurs
+- [x] Combat des Champions (PvP contre stats sauvegardees)
+- [x] Envoi de score apres victoire ou defaite
 
 ## Ce qui reste a faire
 

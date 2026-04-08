@@ -304,7 +304,7 @@ Permet de **farmer de l'XP** sur une salle deja cleared :
 
 | Branche | Contenu |
 |---------|---------|
-| `main` | Base commune |
+| `main` | Branche de Jenn (Generation des niveaux) |
 | `brt` | Branche de Baart (Game Engine) |
 | `DevL0n` | Branche de Lon (Combat) |
 | `NOURA` | Branche de Noura (UI pixel art) |

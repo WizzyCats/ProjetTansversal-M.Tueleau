@@ -292,13 +292,16 @@ Permet de **farmer de l'XP** sur une salle deja cleared :
 - [x] Fond d'arene de combat avec tiles pixel art
 - [x] Collecte auto du loot dans les salles tresor
 - [x] Salles recommencables pour farm
+- [x] 10 donjons avec difficulte progressive
+- [x] Selection de donjon + retour aux donjons precedents pour farm
+- [x] Equilibrage difficulte / economie (XP, ennemis, scaling)
+- [x] Multi-mobs par salle (enchainement automatique)
+- [x] Regen mana/stamina qui scale avec les points investis
 
 ## Ce qui reste a faire
 
-- [ ] Multi-etages (la structure existe dans `generateDungeon()`)
 - [ ] Sauvegarde locale (localStorage)
 - [ ] Animations CSS sur les transitions d'ecran
-- [ ] Equilibrage difficulte / economie
 
 ## Branches
 

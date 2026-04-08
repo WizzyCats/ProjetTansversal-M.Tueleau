@@ -7,7 +7,7 @@
 //   const { state, dispatch } = useGame();
 // ============================================================
 
-import { createContext, useContext, useReducer, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { GameState, GameAction, GameScreen, DEFAULT_PLAYER, Player } from './gameTypes';
 import { generateDungeonFloor } from '../levels/dungeonGenerator';
 import { getClassSkills, getClassResource, getClassBaseStats } from '../combat/skills';
@@ -138,6 +138,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'RESET':
       return { ...initialState };
 
+    case 'LOAD_SAVE':
+      return { ...action.savedState };
+
     default:
       return state;
   }
@@ -151,8 +154,58 @@ interface GameContextValue {
   // Helpers prêts à l'emploi (évite de répéter le dispatch partout)
   startGame: () => void;
   resetGame: () => void;
+  loadSave: () => boolean;
+  hasSaveData: boolean;
   selectDungeon: (level: number) => void;
   goToScreen: (screen: GameScreen) => void;
+}
+
+const SAVE_KEY = 'crawlventure_save';
+
+function saveGame(state: GameState) {
+  try {
+    // On ne sauvegarde que si une partie est en cours
+    if (!state.player) return;
+    // Ne pas sauvegarder pendant un combat (état instable)
+    if (state.screen === 'combat') return;
+    const data = {
+      player: state.player,
+      floor: state.floor,
+      currentRoomId: state.currentRoomId,
+      turn: state.turn,
+      currentDungeon: state.currentDungeon,
+      maxDungeonUnlocked: state.maxDungeonUnlocked,
+      screen: state.screen,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+function loadGame(): GameState | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.player || !data.floor) return null;
+    return {
+      ...initialState,
+      player: data.player,
+      floor: data.floor,
+      currentRoomId: data.currentRoomId,
+      turn: data.turn ?? 0,
+      currentDungeon: data.currentDungeon ?? 1,
+      maxDungeonUnlocked: data.maxDungeonUnlocked ?? 1,
+      screen: data.screen === 'combat' ? 'game' : (data.screen ?? 'game'),
+    };
+  } catch { return null; }
+}
+
+function deleteSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+
+function hasSave(): boolean {
+  return localStorage.getItem(SAVE_KEY) !== null;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -160,6 +213,9 @@ const GameContext = createContext<GameContextValue | null>(null);
 // ── Provider ─────────────────────────────────────────────────
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+
+  // Sauvegarde auto après chaque changement d'état
+  useEffect(() => { saveGame(state); }, [state]);
 
   const startGame = () => {
     const floor = generateDungeonFloor({ floorCount: 1, minRooms: 8, maxRooms: 14, difficulty: 1 }, 1);
@@ -193,7 +249,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SELECT_DUNGEON', dungeonLevel: level, floor });
   };
 
-  const resetGame = () => dispatch({ type: 'RESET' });
+  const resetGame = () => { deleteSave(); dispatch({ type: 'RESET' }); };
+
+  const loadSave = (): boolean => {
+    const saved = loadGame();
+    if (!saved) return false;
+    dispatch({ type: 'LOAD_SAVE', savedState: saved });
+    return true;
+  };
+
+  const hasSaveData = hasSave();
 
   // Helper pour naviguer sans passer par un dispatch explicite
   // Noura : tu peux l'utiliser pour les transitions d'écran
@@ -207,7 +272,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GameContext.Provider value={{ state, dispatch, startGame, resetGame, selectDungeon, goToScreen }}>
+    <GameContext.Provider value={{ state, dispatch, startGame, resetGame, loadSave, hasSaveData, selectDungeon, goToScreen }}>
       {children}
     </GameContext.Provider>
   );

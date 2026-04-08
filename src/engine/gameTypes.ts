@@ -78,7 +78,8 @@ export type GameAction =
   | { type: 'NEXT_TURN' }
   | { type: 'GAME_OVER'; message: string }
   | { type: 'WIN'; message: string }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'LOAD_SAVE'; savedState: GameState };
 
 // ── Joueur par défaut (nouvelle partie) ─────────────────────
 export const DEFAULT_PLAYER: Player = {

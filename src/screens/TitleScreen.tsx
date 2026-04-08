@@ -24,7 +24,7 @@ const CLASS_META: Record<ClassName, { hp: string; spd: string; style: string }> 
 };
 
 export default function TitleScreen() {
-  const { startGame } = useGame();
+  const { startGame, loadSave, hasSaveData } = useGame();
   const sfx = useSoundFX();
   const [selected, setSelected]   = useState<ClassName | null>(null);
   const [playerName, setPlayerName] = useState('');
@@ -44,9 +44,15 @@ export default function TitleScreen() {
         <h1 className="font-pixel text-4xl text-primary">⚔️ CrawlVenture</h1>
         <p className="text-muted-foreground text-sm">Un donjon vous attend. Osez-vous entrer ?</p>
       </div>
+      {hasSaveData && (
+        <button onClick={() => { sfx.playSparkle(); loadSave(); }}
+          className="px-8 py-4 rounded-md bg-green-600 text-white font-pixel text-sm hover:opacity-90 transition-all hover:scale-105 active:scale-95">
+          Continuer
+        </button>
+      )}
       <button onClick={() => { sfx.playMenu(); setStep('class'); }}
         className="px-8 py-4 rounded-md bg-primary text-primary-foreground font-pixel text-sm hover:opacity-90 transition-all hover:scale-105 active:scale-95">
-        ▶ Choisir sa classe
+        Nouvelle partie
       </button>
       <div className="text-xs text-muted-foreground text-center space-y-1 mt-4">
         <p>4 classes uniques · 20 niveaux · Cartes de progression</p>

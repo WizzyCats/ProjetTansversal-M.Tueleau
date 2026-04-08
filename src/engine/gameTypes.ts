@@ -14,6 +14,7 @@ export type GameScreen =
   | 'combat'
   | 'inventory'
   | 'levelup'
+  | 'dungeonselect'
   | 'gameover'
   | 'win';
 
@@ -54,6 +55,8 @@ export interface GameState {
   turn: number;
   gameOverMessage: string;
   winMessage: string;
+  currentDungeon: number;   // 1 à 10
+  maxDungeonUnlocked: number; // plus haut donjon débloqué
 }
 
 // ── Actions du reducer ──────────────────────────────────────
@@ -66,6 +69,8 @@ export type GameAction =
   | { type: 'END_COMBAT_WIN'; player?: Player }
   | { type: 'END_COMBAT_LOSE'; message?: string }
   | { type: 'BOSS_DEFEATED'; bossName: string }
+  | { type: 'SELECT_DUNGEON'; dungeonLevel: number; floor: DungeonFloor }
+  | { type: 'OPEN_DUNGEON_SELECT' }
   | { type: 'OPEN_INVENTORY' }
   | { type: 'CLOSE_INVENTORY' }
   | { type: 'OPEN_LEVELUP' }
@@ -85,7 +90,7 @@ export const DEFAULT_PLAYER: Player = {
   defense: 8,
   level: 1,
   xp: 0,
-  xpToNextLevel: 100,
+  xpToNextLevel: 30,
   inventory: [],
   gold: 0,
   skills: [],

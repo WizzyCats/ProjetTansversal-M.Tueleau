@@ -115,7 +115,9 @@ export function generateDungeonFloor(config: DungeonConfig, floorLevel: number):
       type = 'trap';
     }
 
-    const difficulty = config.difficulty + (floorLevel - 1) * 0.5;
+    // Difficulté progressive : augmente avec la distance au spawn
+    const distFromStart = Math.abs(newPos.x - startPos.x) + Math.abs(newPos.y - startPos.y);
+    const progressiveDifficulty = 1 + distFromStart * 0.4 + (floorLevel - 1) * 0.5;
     const isBoss = type === 'boss';
 
     const newRoom: Room = {
@@ -125,7 +127,7 @@ export function generateDungeonFloor(config: DungeonConfig, floorLevel: number):
       width: 1,
       height: 1,
       doors: [],
-      enemies: generateEnemiesForRoom(difficulty, isBoss, rng),
+      enemies: generateEnemiesForRoom(progressiveDifficulty, isBoss, rng),
       loot: type === 'treasure' ? generateLoot(3 + Math.floor(rng() * 3), difficulty, rng) : [],
       explored: false,
       cleared: false,

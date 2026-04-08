@@ -20,7 +20,7 @@ const STAT_INFO = {
   atk:      { label: 'Attaque',        icon: '⚔️', color: 'text-red-400',    per: '+2 ATK par point' },
   def:      { label: 'Defense',         icon: '🛡️', color: 'text-yellow-400', per: '+1 DEF par point' },
   hp:       { label: 'Vie',             icon: '❤️', color: 'text-green-400',  per: '+8 PV max par point' },
-  resource: { label: 'Mana / Stamina',  icon: '💎', color: 'text-blue-400',   per: '+1 ressource max par point' },
+  resource: { label: 'Mana / Stamina',  icon: '💎', color: 'text-blue-400',   per: '+1 max par point, +1 regen tous les 2 pts' },
   xpBonus:  { label: 'Bonus XP',        icon: '✨', color: 'text-purple-400', per: '+5% XP gagné par point' },
 };
 
@@ -56,17 +56,22 @@ export default function LevelUpScreen() {
     if (pointsLeft > 0) return; // doit tout dépenser
 
     sfx.playLevelUp();
+    // Regen +1 tous les 2 points de mana/stamina investis
+    const newMaxResource = player.maxResource + alloc.resource;
+    const regenGain = Math.floor(alloc.resource / 2);
+
     dispatch({
       type: 'SET_PLAYER',
       player: {
         ...player,
-        attack:      player.attack      + alloc.atk * 2,
-        defense:     player.defense     + alloc.def * 1,
-        maxHp:       player.maxHp       + alloc.hp * 8,
-        hp:          player.hp          + alloc.hp * 8,
-        maxResource: player.maxResource + alloc.resource * 1,
-        xpBonus:     player.xpBonus     + alloc.xpBonus * 5,
-        statPoints:  0,
+        attack:        player.attack        + alloc.atk * 2,
+        defense:       player.defense       + alloc.def * 1,
+        maxHp:         player.maxHp         + alloc.hp * 8,
+        hp:            player.hp            + alloc.hp * 8,
+        maxResource:   newMaxResource,
+        resourceRegen: player.resourceRegen + regenGain,
+        xpBonus:       player.xpBonus       + alloc.xpBonus * 5,
+        statPoints:    0,
       },
     });
     dispatch({ type: 'CLOSE_LEVELUP' });
@@ -124,7 +129,9 @@ export default function LevelUpScreen() {
           {alloc.atk > 0 && <p>ATK {player.attack} → <span className="text-red-400">{player.attack + alloc.atk * 2}</span></p>}
           {alloc.def > 0 && <p>DEF {player.defense} → <span className="text-yellow-400">{player.defense + alloc.def}</span></p>}
           {alloc.hp > 0 && <p>PV max {player.maxHp} → <span className="text-green-400">{player.maxHp + alloc.hp * 8}</span></p>}
-          {alloc.resource > 0 && <p>{resLabel} max {player.maxResource} → <span className="text-blue-400">{player.maxResource + alloc.resource}</span></p>}
+          {alloc.resource > 0 && <p>{resLabel} max {player.maxResource} → <span className="text-blue-400">{player.maxResource + alloc.resource}</span>
+            {Math.floor(alloc.resource / 2) > 0 && <>, regen {player.resourceRegen} → {player.resourceRegen + Math.floor(alloc.resource / 2)}</>}
+          </p>}
           {alloc.xpBonus > 0 && <p>Bonus XP {player.xpBonus}% → <span className="text-purple-400">{player.xpBonus + alloc.xpBonus * 5}%</span></p>}
           {pointsUsed === 0 && <p className="italic">Aucun point attribue</p>}
         </div>

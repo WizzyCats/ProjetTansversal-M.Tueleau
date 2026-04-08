@@ -72,7 +72,15 @@ export default function GameScreen() {
 
       {/* Header */}
       <header className="flex items-center justify-between">
-        <h1 className="font-pixel text-lg text-primary">CrawlVenture</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-pixel text-lg text-primary">Donjon {state.currentDungeon}</h1>
+          <button
+            onClick={() => dispatch({ type: 'OPEN_DUNGEON_SELECT' })}
+            className="text-xs text-muted-foreground hover:text-foreground font-pixel px-2 py-1 border border-border rounded"
+          >
+            Carte
+          </button>
+        </div>
         <span className="text-xs text-muted-foreground font-pixel">Tour {state.turn}</span>
       </header>
 

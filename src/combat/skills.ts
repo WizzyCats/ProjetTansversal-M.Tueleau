@@ -119,8 +119,8 @@ export const MAGE_SKILLS: Skill[] = [
 export const NECRO_SKILLS: Skill[] = [
   {
     id: 'necro_drain', name: 'Drain de vie', cost: 2, className: 'necromancien',
-    description: 'Vole la vie de l\'ennemi (50% → PV).', icon: '🩸',
-    effect: { damageMultiplier: 0.8, healPercent: 50 },
+    description: 'Vole la vie de l\'ennemi (75% → PV).', icon: '🩸',
+    effect: { damageMultiplier: 1.2, healPercent: 75 },
   },
   {
     id: 'necro_curse', name: 'Malédiction', cost: 3, className: 'necromancien',
@@ -129,13 +129,13 @@ export const NECRO_SKILLS: Skill[] = [
   },
   {
     id: 'necro_summon', name: 'Invocation spectrale', cost: 4, className: 'necromancien',
-    description: 'Invoque un spectre (6 dmg/tour, 3 tours).', icon: '👻',
-    effect: { damageMultiplier: 0, summonDmg: 6, summonDuration: 3 },
+    description: 'Invoque un spectre (8 dmg/tour, 4 tours).', icon: '👻',
+    effect: { damageMultiplier: 0, summonDmg: 8, summonDuration: 4 },
   },
   {
     id: 'necro_deathtouch', name: 'Toucher mortel', cost: 5, className: 'necromancien',
     description: 'Concentre toute l\'énergie nécrotique.', icon: '💀',
-    effect: { damageMultiplier: 2.0 },
+    effect: { damageMultiplier: 2.5 },
   },
 ];
 
@@ -173,8 +173,8 @@ export const LEARNABLE_SCROLLS: Skill[] = [
     description: 'Poison violent (6 dmg/tour, 4 tours).', icon: '🦠',
     effect: { damageMultiplier: 0, poisonDmg: 6, poisonDuration: 4 } },
   { id: 'scroll_soulrip', name: 'Arracheur d\'âme', cost: 5, className: 'necromancien',
-    description: 'Gros dégâts + vol de vie 40%.', icon: '👁️',
-    effect: { damageMultiplier: 1.8, healPercent: 40 } },
+    description: 'Gros dégâts + vol de vie 60%.', icon: '👁️',
+    effect: { damageMultiplier: 2.2, healPercent: 60 } },
 ];
 
 // ---------------------------------------------------------------------------

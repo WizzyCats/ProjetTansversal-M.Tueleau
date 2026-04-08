@@ -20,15 +20,15 @@ const ENEMY_TEMPLATES: EnemyTemplate[] = [
   { name: 'Gobelin', tier: 'minion', baseHp: 18, baseAttack: 6, baseDefense: 2, baseXp: 10, icon: '👺' },
 
   // Elites
-  { name: 'Chevalier noir', tier: 'elite', baseHp: 60, baseAttack: 12, baseDefense: 8, baseXp: 30, icon: '🗡️' },
-  { name: 'Ogre', tier: 'elite', baseHp: 80, baseAttack: 15, baseDefense: 5, baseXp: 35, icon: '👹' },
-  { name: 'Nécromancien', tier: 'elite', baseHp: 45, baseAttack: 18, baseDefense: 4, baseXp: 40, icon: '🧙' },
-  { name: 'Minotaure', tier: 'elite', baseHp: 70, baseAttack: 14, baseDefense: 7, baseXp: 35, icon: '🐂' },
+  { name: 'Chevalier noir', tier: 'elite', baseHp: 40, baseAttack: 8, baseDefense: 5, baseXp: 25, icon: '🗡️' },
+  { name: 'Ogre', tier: 'elite', baseHp: 55, baseAttack: 10, baseDefense: 3, baseXp: 28, icon: '👹' },
+  { name: 'Nécromancien', tier: 'elite', baseHp: 35, baseAttack: 12, baseDefense: 3, baseXp: 30, icon: '🧙' },
+  { name: 'Minotaure', tier: 'elite', baseHp: 50, baseAttack: 9, baseDefense: 4, baseXp: 28, icon: '🐂' },
 
   // Boss
-  { name: 'Dragon ancien', tier: 'boss', baseHp: 200, baseAttack: 25, baseDefense: 15, baseXp: 150, icon: '🐉' },
-  { name: 'Liche suprême', tier: 'boss', baseHp: 150, baseAttack: 30, baseDefense: 10, baseXp: 180, icon: '☠️' },
-  { name: 'Démon des abysses', tier: 'boss', baseHp: 250, baseAttack: 22, baseDefense: 18, baseXp: 200, icon: '😈' },
+  { name: 'Dragon ancien', tier: 'boss', baseHp: 120, baseAttack: 16, baseDefense: 8, baseXp: 80, icon: '🐉' },
+  { name: 'Liche suprême', tier: 'boss', baseHp: 100, baseAttack: 18, baseDefense: 6, baseXp: 90, icon: '☠️' },
+  { name: 'Démon des abysses', tier: 'boss', baseHp: 140, baseAttack: 14, baseDefense: 10, baseXp: 100, icon: '😈' },
 ];
 
 let enemyIdCounter = 0;
@@ -37,7 +37,7 @@ export function createEnemy(tier: EnemyTier, difficulty: number, rng: () => numb
   const pool = ENEMY_TEMPLATES.filter(e => e.tier === tier);
   const template = pool[Math.floor(rng() * pool.length)];
 
-  const scale = 1 + (difficulty - 1) * 0.15;
+  const scale = 1 + (difficulty - 1) * 0.1;
   const hp = Math.floor(template.baseHp * scale);
 
   return {
@@ -64,10 +64,14 @@ export function generateEnemiesForRoom(
   }
 
   const enemies: Enemy[] = [];
-  const count = 1 + Math.floor(rng() * Math.min(difficulty, 4));
+  // Max 1 ennemi si difficulté < 2, sinon scale doucement
+  const maxCount = difficulty < 2 ? 1 : Math.min(Math.floor(difficulty / 2) + 1, 3);
+  const count = 1 + Math.floor(rng() * maxCount);
 
   for (let i = 0; i < count; i++) {
-    const tier: EnemyTier = rng() < 0.15 + difficulty * 0.02 ? 'elite' : 'minion';
+    // Pas d'elite avant difficulté 3
+    const eliteChance = difficulty < 3 ? 0 : 0.1 + (difficulty - 3) * 0.05;
+    const tier: EnemyTier = rng() < eliteChance ? 'elite' : 'minion';
     enemies.push(createEnemy(tier, difficulty, rng));
   }
 

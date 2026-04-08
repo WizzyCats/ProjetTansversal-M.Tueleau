@@ -38,7 +38,7 @@ const EMPTY_STATUS: StatusEffects = {
 
 const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const chance = (pct: number) => Math.random() * 100 < pct;
-function xpForLevel(level: number) { return Math.round(100 * Math.pow(level, 1.5)); }
+function xpForLevel(level: number) { return Math.round(30 * Math.pow(level, 1.3)); }
 
 function generateCombatDrops(tier: string): LootItem[] {
   // Boss : 100% drop 2-3 items
@@ -352,6 +352,8 @@ export default function CombatScreen() {
 
   const handleVictory = () => {
     // XP avec bonus %
+    // Marquer l'ennemi comme mort dans la salle
+    activeEnemy.hp = 0;
     const rawXp = activeEnemy.xpReward;
     const xp = Math.round(rawXp * (1 + player.xpBonus / 100));
     const goldDrop = rand(5, 15 + rawXp);
@@ -438,17 +440,29 @@ export default function CombatScreen() {
   // Ici on fait juste la transition d'écran, sans re-écraser le player.
   const handleEndCombat = () => {
     if (phase === 'loot') {
-      if (isAutoRun && levelsGained === 0) {
-        setTimeout(() => continueAutoRun(), 400);
-        return;
-      }
-
       if (activeEnemy.tier === 'boss') {
         stopAutoRun();
         dispatch({ type: 'BOSS_DEFEATED', bossName: activeEnemy.name });
         return;
       }
-      // handleVictory a déjà fait SET_PLAYER — on dispatch juste le changement d'écran
+
+      // Vérifier s'il reste des ennemis vivants dans la salle
+      const room = state.floor?.rooms.find(r => r.id === state.currentRoomId);
+      const remainingEnemies = room?.enemies.filter(e => e.hp > 0 && e.id !== activeEnemy.id) ?? [];
+      if (remainingEnemies.length > 0) {
+        addLog(`${remainingEnemies[0].name} s'avance !`, 'system');
+        dispatch({ type: 'ENTER_COMBAT', enemy: remainingEnemies[0] });
+        setCombatKey(k => k + 1);
+        return;
+      }
+
+      // Tous les ennemis de la salle sont morts
+      if (isAutoRun && levelsGained === 0) {
+        // Auto-run : relancer la salle
+        setTimeout(() => continueAutoRun(), 400);
+        return;
+      }
+
       dispatch({ type: 'END_COMBAT_WIN' });
       if (levelsGained > 0) {
         stopAutoRun();

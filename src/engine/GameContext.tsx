@@ -23,6 +23,8 @@ const initialState: GameState = {
   turn: 0,
   gameOverMessage: '',
   winMessage: '',
+  currentDungeon: 1,
+  maxDungeonUnlocked: 1,
 };
 
 // ── Reducer — machine à états ────────────────────────────────
@@ -80,14 +82,35 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         gameOverMessage: action.message ?? 'Vous avez été vaincu dans les ténèbres...',
       };
 
-    case 'BOSS_DEFEATED':
+    case 'BOSS_DEFEATED': {
+      const nextDungeon = state.currentDungeon + 1;
+      const newMax = Math.max(state.maxDungeonUnlocked, Math.min(nextDungeon, 10));
       return {
         ...state,
         screen: 'win',
         previousScreen: 'combat',
         activeEnemy: null,
-        winMessage: `Vous avez vaincu ${action.bossName} et libéré le donjon !`,
+        winMessage: nextDungeon <= 10
+          ? `Vous avez vaincu ${action.bossName} ! Donjon ${nextDungeon} debloque !`
+          : `Vous avez vaincu ${action.bossName} et conquis tous les donjons !`,
+        maxDungeonUnlocked: newMax,
       };
+    }
+
+    case 'SELECT_DUNGEON': {
+      return {
+        ...state,
+        screen: 'game',
+        floor: action.floor,
+        currentRoomId: action.floor.startRoomId,
+        currentDungeon: action.dungeonLevel,
+        activeEnemy: null,
+        turn: 0,
+      };
+    }
+
+    case 'OPEN_DUNGEON_SELECT':
+      return { ...state, screen: 'dungeonselect' };
 
     case 'OPEN_INVENTORY':
       return state.screen === 'game'
@@ -128,6 +151,7 @@ interface GameContextValue {
   // Helpers prêts à l'emploi (évite de répéter le dispatch partout)
   startGame: () => void;
   resetGame: () => void;
+  selectDungeon: (level: number) => void;
   goToScreen: (screen: GameScreen) => void;
 }
 
@@ -138,7 +162,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
   const startGame = () => {
-    const floor = generateDungeonFloor({ floorCount: 1, minRooms: 8, maxRooms: 14, difficulty: 3 }, 1);
+    const floor = generateDungeonFloor({ floorCount: 1, minRooms: 8, maxRooms: 14, difficulty: 1 }, 1);
     const className = sessionStorage.getItem('playerClassName') ?? 'barbare';
     const playerName = sessionStorage.getItem('playerName') ?? 'Héros';
     const baseStats = getClassBaseStats(className);
@@ -161,6 +185,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'START_GAME', player, floor });
   };
 
+  const selectDungeon = (level: number) => {
+    const diff = 1 + (level - 1) * 1.5;
+    const minRooms = 6 + level;
+    const maxRooms = 10 + level * 2;
+    const floor = generateDungeonFloor({ floorCount: 1, minRooms, maxRooms, difficulty: diff }, level);
+    dispatch({ type: 'SELECT_DUNGEON', dungeonLevel: level, floor });
+  };
+
   const resetGame = () => dispatch({ type: 'RESET' });
 
   // Helper pour naviguer sans passer par un dispatch explicite
@@ -175,7 +207,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GameContext.Provider value={{ state, dispatch, startGame, resetGame, goToScreen }}>
+    <GameContext.Provider value={{ state, dispatch, startGame, resetGame, selectDungeon, goToScreen }}>
       {children}
     </GameContext.Provider>
   );

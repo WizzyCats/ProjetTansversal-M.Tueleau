@@ -383,13 +383,19 @@ export default function CombatScreen() {
       statPoints: player.statPoints + lvGained * 5,
     }});
 
-    if (isAutoRun && lvGained === 0 && !scroll) {
-      // Auto-run : relance direct sans passer par l'écran loot
-      setTimeout(() => continueAutoRun(), 300);
+    if (isAutoRun && !scroll) {
+      // Auto-run : checker les mobs restants puis relancer
+      const room = state.floor?.rooms.find(r => r.id === state.currentRoomId);
+      const remaining = room?.enemies.filter(e => e.hp > 0 && e.id !== activeEnemy.id) ?? [];
+      if (remaining.length > 0) {
+        // Mob suivant dans la salle
+        dispatch({ type: 'ENTER_COMBAT', enemy: remaining[0] });
+        setCombatKey(k => k + 1);
+      } else {
+        // Salle finie, relancer toute la salle
+        setTimeout(() => continueAutoRun(), 300);
+      }
       return;
-    }
-    if (isAutoRun && lvGained > 0) {
-      stopAutoRun();
     }
     setPhase(scroll ? 'learn_skill' : 'loot');
   };
@@ -457,15 +463,14 @@ export default function CombatScreen() {
       }
 
       // Tous les ennemis de la salle sont morts
-      if (isAutoRun && levelsGained === 0) {
-        // Auto-run : relancer la salle
+      if (isAutoRun) {
+        // Auto-run : relancer la salle (les points s'accumulent)
         setTimeout(() => continueAutoRun(), 400);
         return;
       }
 
       dispatch({ type: 'END_COMBAT_WIN' });
       if (levelsGained > 0) {
-        stopAutoRun();
         setTimeout(() => dispatch({ type: 'OPEN_LEVELUP' }), 50);
       }
     } else if (phase === 'defeat') {
